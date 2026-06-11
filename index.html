@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Fitness Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #2e2e2e;
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent: #4ade80;
+      --accent-dim: rgba(74,222,128,0.1);
+      --accent-border: rgba(74,222,128,0.3);
+      --yellow: #fbbf24;
+      --blue: #60a5fa;
+      --red: #f87171;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+
+    .date-nav { display: flex; align-items: center; gap: 10px; }
+    .date-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .date-label {
+      font-size: 13px; font-weight: 700;
+      color: var(--accent);
+      min-width: 86px; text-align: center;
+    }
+
+    /* ── Content ── */
+    .content { padding: 14px; max-width: 500px; margin: 0 auto; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.9px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+
+    /* ── Inputs ── */
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    .input-group label { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .input-group input, .input-group textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px; font-weight: 600;
+      padding: 10px 12px;
+      width: 100%; outline: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    .input-group input:focus, .input-group textarea:focus { border-color: var(--accent); }
+    .input-group input::placeholder { color: var(--muted); font-weight: 400; font-size: 14px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    .save-flash {
+      font-size: 11px; color: var(--accent);
+      text-align: right; margin-top: 6px;
+      height: 14px; opacity: 0; transition: opacity 0.3s;
+    }
+    .save-flash.on { opacity: 1; }
+
+    /* ── Macro totals ── */
+    .macro-totals { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+    .macro-chip {
+      background: var(--surface2);
+      border-radius: 8px; padding: 8px 6px; text-align: center;
+    }
+    .macro-chip .val { font-size: 18px; font-weight: 700; display: block; line-height: 1.1; }
+    .macro-chip .lbl { font-size: 10px; color: var(--muted); display: block; margin-top: 3px; }
+    .macro-chip.cals .val  { color: var(--yellow); }
+    .macro-chip.pro  .val  { color: var(--accent); }
+    .macro-chip.carb .val  { color: var(--blue); }
+    .macro-chip.fat  .val  { color: var(--red); }
+
+    /* ── Food items ── */
+    .food-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+    .food-item {
+      background: var(--surface2);
+      border-radius: 8px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .food-name { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; }
+    .food-macros { display: flex; gap: 8px; font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+    .del-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; padding: 2px; line-height: 1; flex-shrink: 0;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    /* ── Add food form ── */
+    .add-form { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 700;
+      padding: 12px 16px; cursor: pointer;
+      width: 100%; letter-spacing: 0.1px;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:active { opacity: 0.85; }
+    .btn-export {
+      background: var(--accent-dim); color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+
+    /* ── Notes ── */
+    .notes-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px; line-height: 1.5;
+      padding: 10px 12px;
+      width: 100%; min-height: 78px;
+      resize: vertical; outline: none;
+      font-family: inherit;
+    }
+    .notes-input:focus { border-color: var(--accent); }
+    .notes-input::placeholder { color: var(--muted); }
+
+    /* ── Bottom nav ── */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; z-index: 20;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-btn {
+      flex: 1; background: none; border: none;
+      color: var(--muted); padding: 10px 8px 12px;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+      font-family: inherit;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-icon { font-size: 22px; }
+
+    /* ── Views ── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── History ── */
+    .hist-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .hist-date {
+      font-size: 13px; font-weight: 700;
+      color: var(--accent); margin-bottom: 10px;
+    }
+    .hist-row {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: var(--muted); margin-bottom: 6px;
+      gap: 8px;
+    }
+    .hist-row strong { color: var(--text); font-size: 13px; }
+    .hist-note { font-size: 12px; line-height: 1.4; color: var(--text); }
+
+    /* ── Export ── */
+    .export-ta {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Mono', Menlo, monospace;
+      font-size: 11px; line-height: 1.55;
+      padding: 12px; width: 100%; height: 320px;
+      resize: none; outline: none; margin-bottom: 10px;
+    }
+    .copy-hint {
+      font-size: 12px; color: var(--muted);
+      text-align: center; margin-top: 8px;
+    }
+
+    .empty {
+      text-align: center; padding: 60px 20px; color: var(--muted);
+    }
+    .empty .ico { font-size: 44px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Fitness Log</h1>
+  <div class="date-nav">
+    <button class="date-btn" onclick="shiftDay(-1)">‹</button>
+    <span class="date-label" id="dateLabel"></span>
+    <button class="date-btn" onclick="shiftDay(1)">›</button>
+  </div>
+</div>
+
+<!-- ═══ LOG VIEW ═══ -->
+<div class="view active" id="view-log">
+  <div class="content">
+
+    <!-- Body Data -->
+    <div class="card">
+      <div class="card-title">Body Data — from scale scan</div>
+      <div class="grid-2">
+        <div class="input-group">
+          <label>Weight (lbs)</label>
+          <input type="number" inputmode="decimal" id="f-weight" placeholder="0.0" oninput="saveBody()">
+        </div>
+        <div class="input-group">
+          <label>Body Fat %</label>
+          <input type="number" inputmode="decimal" id="f-bf" placeholder="0.0" oninput="saveBody()">
+        </div>
+        <div class="input-group">
+          <label>Muscle Mass (lbs)</label>
+          <input type="number" inputmode="decimal" id="f-muscle" placeholder="0.0" oninput="saveBody()">
+        </div>
+        <div class="input-group">
+          <label>Water %</label>
+          <input type="number" inputmode="decimal" id="f-water" placeholder="0.0" oninput="saveBody()">
+        </div>
+      </div>
+      <div class="save-flash" id="bodyFlash">Saved ✓</div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card">
+      <div class="card-title">Notes</div>
+      <textarea class="notes-input" id="f-notes"
+        placeholder="Sleep quality, energy levels, how training felt, anything notable..."
+        oninput="saveNotes()"></textarea>
+      <div class="save-flash" id="notesFlash">Saved ✓</div>
+    </div>
+
+    <!-- Nutrition -->
+    <div class="card">
+      <div class="card-title">Nutrition</div>
+
+      <div class="macro-totals">
+        <div class="macro-chip cals"><span class="val" id="t-cals">0</span><span class="lbl">kcal</span></div>
+        <div class="macro-chip pro"><span class="val" id="t-pro">0</span><span class="lbl">protein g</span></div>
+        <div class="macro-chip carb"><span class="val" id="t-carb">0</span><span class="lbl">carbs g</span></div>
+        <div class="macro-chip fat"><span class="val" id="t-fat">0</span><span class="lbl">fat g</span></div>
+      </div>
+
+      <div class="food-list" id="foodList"></div>
+
+      <div class="add-form">
+        <div class="input-group">
+          <label>Food / Meal name</label>
+          <input type="text" id="f-fname" placeholder="e.g. Grilled chicken + white rice" autocomplete="off">
+        </div>
+        <div class="grid-4">
+          <div class="input-group">
+            <label>Calories</label>
+            <input type="number" inputmode="numeric" id="f-fcals" placeholder="0">
+          </div>
+          <div class="input-group">
+            <label>Protein</label>
+            <input type="number" inputmode="numeric" id="f-fpro" placeholder="0">
+          </div>
+          <div class="input-group">
+            <label>Carbs</label>
+            <input type="number" inputmode="numeric" id="f-fcarb" placeholder="0">
+          </div>
+          <div class="input-group">
+            <label>Fat</label>
+            <input type="number" inputmode="numeric" id="f-ffat" placeholder="0">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addFood()">+ Add Food</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ HISTORY VIEW ═══ -->
+<div class="view" id="view-history">
+  <div class="content" id="historyEl"></div>
+</div>
+
+<!-- ═══ EXPORT VIEW ═══ -->
+<div class="view" id="view-export">
+  <div class="content">
+    <div class="card">
+      <div class="card-title">Export for Claude</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5">
+        Paste this into a Claude chat along with your scale screenshots to review progress and adjust your plan.
+        Covers your last 14 days of logged data.
+      </p>
+      <textarea class="export-ta" id="exportTa" readonly></textarea>
+      <button class="btn btn-export" id="copyBtn" onclick="copyExport()">Copy to Clipboard</button>
+      <p class="copy-hint" id="copyHint" style="display:none">
+        Text selected — press <strong>⌘C</strong> (Mac) or <strong>Ctrl+C</strong> (Windows) to copy
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Bottom Nav ═══ -->
+<nav class="nav">
+  <button class="nav-btn active" id="nav-log" onclick="switchView('log')">
+    <span class="nav-icon">📋</span>Log
+  </button>
+  <button class="nav-btn" id="nav-history" onclick="switchView('history')">
+    <span class="nav-icon">📈</span>History
+  </button>
+  <button class="nav-btn" id="nav-export" onclick="switchView('export')">
+    <span class="nav-icon">📤</span>Export
+  </button>
+</nav>
+
+<script>
+  // ── Date helpers ──────────────────────────────────────────
+  let current = todayKey();
+
+  function todayKey() {
+    const d = new Date();
+    return [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-');
+  }
+
+  function pad(n) { return String(n).padStart(2,'0'); }
+
+  function keyToDate(k) {
+    const [y,m,d] = k.split('-').map(Number);
+    return new Date(y, m-1, d);
+  }
+
+  function labelFor(k) {
+    const today = todayKey();
+    if (k === today) return 'Today';
+    const yest = new Date(); yest.setDate(yest.getDate()-1);
+    const yKey = [yest.getFullYear(), pad(yest.getMonth()+1), pad(yest.getDate())].join('-');
+    if (k === yKey) return 'Yesterday';
+    const dt = keyToDate(k);
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${days[dt.getDay()]} ${months[dt.getMonth()]} ${dt.getDate()}`;
+  }
+
+  function shiftDay(delta) {
+    const dt = keyToDate(current);
+    dt.setDate(dt.getDate() + delta);
+    const newKey = [dt.getFullYear(), pad(dt.getMonth()+1), pad(dt.getDate())].join('-');
+    if (newKey > todayKey()) return;
+    current = newKey;
+    loadDay();
+  }
+
+  // ── Storage ───────────────────────────────────────────────
+  function allData() { return JSON.parse(localStorage.getItem('fitnessLog') || '{}'); }
+  function saveAll(d) { localStorage.setItem('fitnessLog', JSON.stringify(d)); }
+  function dayData(k) { return allData()[k] || { body:{}, food:[], notes:'' }; }
+  function setDay(k, d) { const a = allData(); a[k] = d; saveAll(a); }
+
+  // ── Load day ──────────────────────────────────────────────
+  function loadDay() {
+    document.getElementById('dateLabel').textContent = labelFor(current);
+    const d = dayData(current);
+    const b = d.body || {};
+    document.getElementById('f-weight').value = b.weight ?? '';
+    document.getElementById('f-bf').value     = b.bf ?? '';
+    document.getElementById('f-muscle').value = b.muscle ?? '';
+    document.getElementById('f-water').value  = b.water ?? '';
+    document.getElementById('f-notes').value  = d.notes || '';
+    renderFood(d.food || []);
+  }
+
+  // ── Save body ─────────────────────────────────────────────
+  let bodyTimer;
+  function saveBody() {
+    clearTimeout(bodyTimer);
+    bodyTimer = setTimeout(() => {
+      const d = dayData(current);
+      d.body = {
+        weight: parseFloat(document.getElementById('f-weight').value) || null,
+        bf:     parseFloat(document.getElementById('f-bf').value)     || null,
+        muscle: parseFloat(document.getElementById('f-muscle').value) || null,
+        water:  parseFloat(document.getElementById('f-water').value)  || null,
+      };
+      setDay(current, d);
+      flash('bodyFlash');
+    }, 600);
+  }
+
+  // ── Save notes ────────────────────────────────────────────
+  let notesTimer;
+  function saveNotes() {
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      const d = dayData(current);
+      d.notes = document.getElementById('f-notes').value;
+      setDay(current, d);
+      flash('notesFlash');
+    }, 600);
+  }
+
+  function flash(id) {
+    const el = document.getElementById(id);
+    el.classList.add('on');
+    setTimeout(() => el.classList.remove('on'), 1800);
+  }
+
+  // ── Food ──────────────────────────────────────────────────
+  function renderFood(food) {
+    const list = document.getElementById('foodList');
+    list.innerHTML = '';
+    let tc=0, tp=0, tcarb=0, tf=0;
+
+    food.forEach((item, i) => {
+      tc    += item.cals  || 0;
+      tp    += item.pro   || 0;
+      tcarb += item.carb  || 0;
+      tf    += item.fat   || 0;
+
+      const el = document.createElement('div');
+      el.className = 'food-item';
+      el.innerHTML = `
+        <span class="food-name">${escHtml(item.name)}</span>
+        <div class="food-macros">
+          <span style="color:var(--yellow)">${item.cals}cal</span>
+          <span style="color:var(--accent)">${item.pro}p</span>
+          <span style="color:var(--blue)">${item.carb}c</span>
+          <span style="color:var(--red)">${item.fat}f</span>
+        </div>
+        <button class="del-btn" onclick="delFood(${i})">×</button>`;
+      list.appendChild(el);
+    });
+
+    document.getElementById('t-cals').textContent  = tc;
+    document.getElementById('t-pro').textContent   = tp;
+    document.getElementById('t-carb').textContent  = tcarb;
+    document.getElementById('t-fat').textContent   = tf;
+  }
+
+  function addFood() {
+    const name = document.getElementById('f-fname').value.trim();
+    if (!name) { document.getElementById('f-fname').focus(); return; }
+    const entry = {
+      name,
+      cals: parseInt(document.getElementById('f-fcals').value)  || 0,
+      pro:  parseInt(document.getElementById('f-fpro').value)   || 0,
+      carb: parseInt(document.getElementById('f-fcarb').value)  || 0,
+      fat:  parseInt(document.getElementById('f-ffat').value)   || 0,
+    };
+    const d = dayData(current);
+    d.food = d.food || [];
+    d.food.push(entry);
+    setDay(current, d);
+    renderFood(d.food);
+    ['f-fname','f-fcals','f-fpro','f-fcarb','f-ffat'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-fname').focus();
+  }
+
+  function delFood(i) {
+    const d = dayData(current);
+    d.food.splice(i, 1);
+    setDay(current, d);
+    renderFood(d.food);
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Views ─────────────────────────────────────────────────
+  function switchView(v) {
+    ['log','history','export'].forEach(n => {
+      document.getElementById(`view-${n}`).classList.toggle('active', n===v);
+      document.getElementById(`nav-${n}`).classList.toggle('active', n===v);
+    });
+    if (v === 'history') buildHistory();
+    if (v === 'export')  buildExport();
+  }
+
+  // ── History ───────────────────────────────────────────────
+  function buildHistory() {
+    const data = allData();
+    const keys = Object.keys(data).sort().reverse();
+    const el = document.getElementById('historyEl');
+
+    if (!keys.length) {
+      el.innerHTML = `<div class="empty"><div class="ico">📋</div><p>No logs yet — start tracking today!</p></div>`;
+      return;
+    }
+
+    el.innerHTML = keys.map(k => {
+      const d = data[k];
+      const food = d.food || [];
+      const b = d.body || {};
+      const tc   = food.reduce((s,f)=>s+(f.cals||0), 0);
+      const tp   = food.reduce((s,f)=>s+(f.pro||0),  0);
+      const tcarb= food.reduce((s,f)=>s+(f.carb||0), 0);
+      const tf   = food.reduce((s,f)=>s+(f.fat||0),  0);
+
+      const bodyRows = [
+        b.weight ? `<div class="hist-row"><span>Weight</span><strong>${b.weight} lbs</strong></div>` : '',
+        b.bf     ? `<div class="hist-row"><span>Body Fat</span><strong>${b.bf}%</strong></div>` : '',
+        b.muscle ? `<div class="hist-row"><span>Muscle Mass</span><strong>${b.muscle} lbs</strong></div>` : '',
+        b.water  ? `<div class="hist-row"><span>Water</span><strong>${b.water}%</strong></div>` : '',
+      ].join('');
+
+      const nutRow = tc > 0 ? `
+        <div class="hist-row">
+          <span>Nutrition</span>
+          <strong>
+            <span style="color:var(--yellow)">${tc} kcal</span>
+            &nbsp;·&nbsp;<span style="color:var(--accent)">${tp}g P</span>
+            &nbsp;·&nbsp;<span style="color:var(--blue)">${tcarb}g C</span>
+            &nbsp;·&nbsp;<span style="color:var(--red)">${tf}g F</span>
+          </strong>
+        </div>` : '';
+
+      const noteRow = d.notes ? `
+        <div class="hist-row" style="flex-direction:column;gap:4px">
+          <span>Notes</span>
+          <span class="hist-note">${escHtml(d.notes.substring(0,160))}${d.notes.length>160?'…':''}</span>
+        </div>` : '';
+
+      if (!bodyRows && !nutRow && !noteRow) return '';
+
+      return `<div class="hist-item">
+        <div class="hist-date">${labelFor(k)} <span style="color:var(--muted);font-size:11px;font-weight:400">${k}</span></div>
+        ${bodyRows}${nutRow}${noteRow}
+      </div>`;
+    }).join('');
+  }
+
+  // ── Export ────────────────────────────────────────────────
+  function buildExport() {
+    const data = allData();
+    const keys = Object.keys(data).sort().reverse().slice(0, 14);
+
+    if (!keys.length) {
+      document.getElementById('exportTa').value = 'No data logged yet.';
+      return;
+    }
+
+    const lines = [
+      'FITNESS LOG — LAST 14 DAYS',
+      '══════════════════════════',
+      '',
+      'Below is my logged body data and daily nutrition.',
+      'Please review trends, flag anything concerning, and suggest adjustments to my meal plan or targets.',
+      '',
+    ];
+
+    keys.forEach(k => {
+      const d = data[k];
+      const b = d.body || {};
+      const food = d.food || [];
+
+      lines.push(`▸ ${labelFor(k).toUpperCase()} (${k})`);
+
+      const bodyParts = [];
+      if (b.weight) bodyParts.push(`Weight: ${b.weight} lbs`);
+      if (b.bf)     bodyParts.push(`Body Fat: ${b.bf}%`);
+      if (b.muscle) bodyParts.push(`Muscle Mass: ${b.muscle} lbs`);
+      if (b.water)  bodyParts.push(`Water: ${b.water}%`);
+      if (bodyParts.length) lines.push('  Body: ' + bodyParts.join(' | '));
+
+      if (food.length) {
+        const tc   = food.reduce((s,f)=>s+(f.cals||0), 0);
+        const tp   = food.reduce((s,f)=>s+(f.pro||0),  0);
+        const tcarb= food.reduce((s,f)=>s+(f.carb||0), 0);
+        const tf   = food.reduce((s,f)=>s+(f.fat||0),  0);
+        lines.push(`  Totals: ${tc} kcal | ${tp}g protein | ${tcarb}g carbs | ${tf}g fat`);
+        food.forEach(f => lines.push(`    • ${f.name}: ${f.cals} kcal (${f.pro}P / ${f.carb}C / ${f.fat}F)`));
+      }
+
+      if (d.notes) lines.push(`  Notes: ${d.notes}`);
+      lines.push('');
+    });
+
+    document.getElementById('exportTa').value = lines.join('\n');
+  }
+
+  function copyExport() {
+    const ta = document.getElementById('exportTa');
+    const btn = document.getElementById('copyBtn');
+    const hint = document.getElementById('copyHint');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy to Clipboard', 2500);
+      }).catch(() => fallbackCopy(ta, btn, hint));
+    } else {
+      fallbackCopy(ta, btn, hint);
+    }
+  }
+
+  function fallbackCopy(ta, btn, hint) {
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
+    if (ok) {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy to Clipboard', 2500);
+    } else {
+      hint.style.display = 'block';
+    }
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.activeElement.id === 'f-fname') {
+      e.preventDefault();
+      document.getElementById('f-fcals').focus();
+    }
+    if (e.key === 'Enter' && document.activeElement.id === 'f-ffat') {
+      e.preventDefault();
+      addFood();
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────────────
+  loadDay();
+</script>
+</body>
+</html>
