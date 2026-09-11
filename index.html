@@ -284,7 +284,10 @@
     .modal input:focus { border-color: var(--accent); }
     .modal .row { display: flex; gap: 8px; }
     .modal .row .btn { flex: 1; }
-    .status-msg { font-size: 12px; margin-top: 10px; min-height: 16px; }
+    .status-msg { font-size: 12px; margin-top: 10px; min-height: 16px; line-height: 1.5; }
+    .set-info { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+    .set-info b { color: var(--text); }
+    .sync-pill { cursor: pointer; }
     .status-msg.ok { color: var(--accent); } .status-msg.err { color: var(--red); }
     .warn { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.5; color: #fca5a5; margin-bottom: 14px; }
 
@@ -435,7 +438,7 @@
     <h1>HDH Log</h1>
   </div>
   <div class="header-actions">
-    <span class="sync-pill" id="syncPill"><span class="sync-dot"></span><span id="syncTxt">Local</span></span>
+    <span class="sync-pill" id="syncPill" onclick="openSettings()" role="button" tabindex="0"><span class="sync-dot"></span><span id="syncTxt">Local</span></span>
     <button class="icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </div>
 </div>
@@ -598,7 +601,7 @@
     <h2>Settings</h2>
     <p class="desc">Sync your log across devices with JSONBin. Your key is stored only in this browser — never in the app's code.</p>
     <div class="warn">
-      <strong>Use an Access Key</strong> scoped to <em>Read + Update</em> on this one bin — not your Master Key. A Master Key here would expose your whole JSONBin account.
+      <strong>Use an Access Key</strong> with <em>Bins → Read</em> and <em>Bins → Update</em> ticked — not your Master Key, which would expose your whole JSONBin account. Test checks both.
     </div>
     <div class="field">
       <label>Bin ID</label>
@@ -613,6 +616,7 @@
       <button class="btn btn-primary" onclick="saveSettings()">Save &amp; Sync</button>
     </div>
     <div class="status-msg" id="setStatus"></div>
+    <div class="set-info" id="setInfo"></div>
     <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
     <div class="row">
       <button class="btn btn-ghost" onclick="downloadBackup()">Download backup (JSON)</button>
@@ -713,7 +717,7 @@
   function setDay(k,d,sec){
     const a=allData(); const now=Date.now();
     d._ts=now; if(sec){ d._s=Object.assign({}, d._s||{}); d._s[sec]=now; }
-    a[k]=d; saveAll(a); scheduleSync();
+    a[k]=d; saveAll(a); localDirty=true; scheduleSync();
     if(k===current && document.getElementById('view-log').classList.contains('active')){ renderSummary(); renderWeighCtx(); }
   }
 
@@ -727,20 +731,46 @@
     document.getElementById('syncTxt').textContent=txt;
   }
 
-  async function pullRemote(){
-    const key=getKey(); if(!key) return null;
-    const res=await fetch(API_BASE+getBin()+'/latest', { headers:{ 'X-Access-Key':key, 'X-Bin-Meta':'false' } });
-    if(!res.ok) throw new Error('HTTP '+res.status);
+  // ── JSONBin transport — keeps the real status + JSONBin's message instead of a bare "error" ──
+  const JSONBIN_FREE_LIMIT = 100*1024;      // free plan: 100 KB per bin
+  const JSONBIN_FREE_REQS = 10000;          // free plan: 10,000 requests per account, lifetime (not monthly)
+  let lastSyncErr=null, lastSyncOk=0, localDirty=false;
+  function reqCount(){ try{ return +(localStorage.getItem('jsonbinReqs')||0); }catch(e){ return 0; } }
+  function countReq(){ try{ localStorage.setItem('jsonbinReqs', reqCount()+1); }catch(e){} }
+  async function apiFetch(stage, url, opts){
+    let res; countReq();
+    try{ res=await fetch(url, opts); }
+    catch(e){ const err=new Error('network'); err.stage=stage; err.status=0; throw err; }
+    if(!res.ok){
+      let msg=''; try{ const j=await res.json(); msg=j.message||''; }catch(e){}
+      const err=new Error('HTTP '+res.status); err.stage=stage; err.status=res.status; err.detail=msg; throw err;
+    }
+    return res;
+  }
+  async function pullRemote(bin, key){
+    key=key||getKey(); if(!key) return null;
+    const res=await apiFetch('read', API_BASE+(bin||getBin())+'/latest', { headers:{ 'X-Access-Key':key, 'X-Bin-Meta':'false' } });
     return await res.json();
   }
-  async function pushRemote(data){
-    const key=getKey(); if(!key) throw new Error('No key');
-    const res=await fetch(API_BASE+getBin(), {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json', 'X-Access-Key':key },
-      body:JSON.stringify(data)
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
+  function payloadBytes(data){ return new Blob([JSON.stringify(data)]).size; }
+  async function pushRemote(data, bin, key){
+    key=key||getKey(); if(!key) throw new Error('No key');
+    const body=JSON.stringify(data), bytes=new Blob([body]).size;
+    if(bytes>JSONBIN_FREE_LIMIT){ const err=new Error('too large'); err.stage='write'; err.status=413; err.detail=`${Math.round(bytes/1024)} KB`; throw err; }
+    await apiFetch('write', API_BASE+(bin||getBin()), { method:'PUT', headers:{ 'Content-Type':'application/json', 'X-Access-Key':key }, body });
+  }
+  // Plain-English cause + fix for each failure JSONBin can return.
+  function explainSyncErr(e){
+    if(!e) return '';
+    const s=e.status, d=e.detail && s!==413 ? ` JSONBin said: “${escHtml(e.detail)}”.` : '';
+    if(s===0) return 'Couldn’t reach JSONBin (offline or blocked). Your log is safe on this device and syncs when the connection is back.';
+    if(s===413) return `Your log is ${e.detail}, over JSONBin’s 100 KB free-plan limit per bin, so it can’t upload. Everything is still saved on this device.`;
+    if(s===401) return 'No key was sent. Paste your Access Key and save again.'+d;
+    if(s===403 && e.stage==='write') return '<b>This key can read the bin but not update it.</b> In JSONBin → API Keys → Access Keys, edit the key and tick <b>Bins → Update</b> (or make a new key with Read + Update), paste it here, then Save &amp; Sync.'+d;
+    if(s===403) return 'JSONBin refused the key: it’s mistyped, it lacks Bins → Read, the bin belongs to another account, or the account’s free request quota is used up.'+d;
+    if(s===404) return 'No bin with that ID. Copy the Bin ID again from JSONBin.'+d;
+    if(s===400) return 'JSONBin rejected the request, usually because of a mistyped Bin ID.'+d;
+    return `Sync failed (HTTP ${s}).`+d;
   }
 
   // ── Merge ──
@@ -780,30 +810,41 @@
   function scheduleSync(){
     if(!getKey()){ setSync('', 'Local'); return; }
     clearTimeout(syncTimer);
-    syncTimer=setTimeout(syncNow, 1200);
+    syncTimer=setTimeout(syncNow, 4000);   // coalesce bursts of edits into one GET+PUT
   }
-  async function syncNow(){
-    if(!getKey()){ setSync('','Local only'); return; }
-    if(syncing){ syncAgain=true; return; }
+  let syncRun=null;
+  function syncNow(){
+    if(!getKey()){ setSync('','Local only'); return Promise.resolve(); }
+    if(syncing){ syncAgain=true; return syncRun; }
     syncing=true; setSync('busy','Syncing…');
-    try{
-      let remote=await pullRemote();
-      if(!remote || typeof remote!=='object' || Array.isArray(remote)) remote={};
-      // Re-read local *after* the await so edits made while the pull was in flight are kept.
-      const local=allData();
-      const merged=mergeData(local, remote);
-      const m=stableStr(merged);
-      const localChanged = m!==stableStr(local);
-      if(localChanged) saveAll(merged);
-      if(m!==stableStr(remote)) await pushRemote(merged);
-      if(localChanged) refreshAfterSync();
-      setSync('ok','Synced');
-    }catch(e){ setSync('err','Sync error'); }
-    finally{
-      syncing=false;
-      if(syncAgain){ syncAgain=false; syncNow(); }
-    }
+    const wasDirty=localDirty; localDirty=false;
+    syncRun=(async()=>{
+      try{
+        let remote=await pullRemote();
+        if(!remote || typeof remote!=='object' || Array.isArray(remote)) remote={};
+        // Re-read local *after* the await so edits made while the pull was in flight are kept.
+        const local=allData();
+        const merged=mergeData(local, remote);
+        const m=stableStr(merged);
+        const localChanged = m!==stableStr(local);
+        if(localChanged) saveAll(merged);
+        // Never upload an empty log (JSONBin rejects blank bins, and there's nothing to protect).
+        if(m!==stableStr(remote) && Object.keys(merged).length) await pushRemote(merged);
+        if(localChanged) refreshAfterSync();
+        lastSyncErr=null; lastSyncOk=Date.now();
+        setSync('ok','Synced'); document.getElementById('syncPill').title='Synced '+new Date().toLocaleTimeString();
+      }catch(e){
+        lastSyncErr=e; localDirty = localDirty || wasDirty;
+        setSync('err', e.stage==='write' ? 'Can’t upload' : (e.status===0 ? 'Offline' : 'Sync error'));
+        document.getElementById('syncPill').title=explainSyncErr(e).replace(/<[^>]+>/g,'');
+      }finally{
+        syncing=false;
+        if(syncAgain){ syncAgain=false; syncNow(); }
+      }
+    })();
+    return syncRun;
   }
+  async function syncSettled(){ await syncNow(); while(syncing) await new Promise(r=>setTimeout(r,100)); }
   const initialSync=syncNow, pushSync=syncNow;   // names used elsewhere
 
   // Re-render after remote changes arrived — but never reload the form under someone typing.
@@ -821,8 +862,14 @@
     if(active('export')) buildExport();
   }
   // Pick up other devices' changes when returning to the app or coming back online.
-  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') syncNow(); });
-  window.addEventListener('online', ()=>syncNow());
+  // Requests are metered (free plan: 10,000 per account, lifetime), so: pull on return only if it's
+  // been 5+ minutes, and flush pending edits when the app is hidden instead of waiting on the timer.
+  const FOCUS_PULL_MS = 5*60*1000;
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible'){ if(localDirty || Date.now()-lastSyncOk>FOCUS_PULL_MS) syncNow(); }
+    else { flushBody(); flushNotes(); flushNutrition(); if(localDirty){ clearTimeout(syncTimer); syncNow(); } }
+  });
+  window.addEventListener('online', ()=>{ if(localDirty || lastSyncErr) syncNow(); });
 
   // ═══════════════ Load / render day ═══════════════
   function loadDay(){
@@ -1782,32 +1829,47 @@
     document.getElementById('setKey').value=getKey();
     document.getElementById('setStatus').textContent='';
     document.getElementById('setStatus').className='status-msg';
+    if(lastSyncErr) setStatusHtml('Last sync failed. '+explainSyncErr(lastSyncErr), false);
+    renderSetInfo();
     document.getElementById('settingsModal').style.display='flex';
   }
   function closeSettings(){ document.getElementById('settingsModal').style.display='none'; }
   function setStatus(msg, ok){ const el=document.getElementById('setStatus'); el.textContent=msg; el.className='status-msg '+(ok?'ok':'err'); }
 
+  function setStatusHtml(html, ok){ const el=document.getElementById('setStatus'); el.innerHTML=html; el.className='status-msg '+(ok?'ok':'err'); }
+  // Read, then write the bin's own contents back unchanged — proves Update permission without changing anything.
   async function testConn(){
     const bin=document.getElementById('setBin').value.trim(), key=document.getElementById('setKey').value.trim();
     if(!bin||!key){ setStatus('Enter both Bin ID and Access Key.',false); return; }
-    setStatus('Testing…',true);
-    try{
-      const res=await fetch(API_BASE+bin+'/latest',{ headers:{ 'X-Access-Key':key, 'X-Bin-Meta':'false' } });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      await res.json(); setStatus('Connection OK ✓',true);
-    }catch(e){ setStatus('Failed: '+e.message+' (check key permissions / bin id)',false); }
+    setStatus('Testing read…',true);
+    let remote;
+    try{ remote=await pullRemote(bin,key); }
+    catch(e){ setStatusHtml('Read failed. '+explainSyncErr(e), false); return; }
+    const days = remote && typeof remote==='object' && !Array.isArray(remote) ? Object.keys(remote).length : 0;
+    if(!days){ setStatusHtml('Read ✓. The bin is empty, so there was nothing safe to write back. Save &amp; Sync will do the first upload.', true); return; }
+    setStatus('Read ✓ · testing write…',true);
+    try{ await pushRemote(remote,bin,key); setStatusHtml(`Read ✓ · Write ✓ · bin holds ${days} days (${fmtKB(payloadBytes(remote))} of 100 KB).`, true); }
+    catch(e){ setStatusHtml('Read ✓ · <b>Write failed.</b> '+explainSyncErr(e), false); }
+    renderSetInfo();
   }
   async function saveSettings(){
     const bin=document.getElementById('setBin').value.trim(), key=document.getElementById('setKey').value.trim();
+    if(!bin||!key){ setStatus('Enter both Bin ID and Access Key.',false); return; }
     localStorage.setItem('jsonbinId', bin);
     localStorage.setItem('jsonbinKey', key);
     setStatus('Saved. Syncing…',true);
-    try{
-      await syncNow();
-      if(document.getElementById('syncPill').classList.contains('err')) throw new Error('check Bin ID / key');
-      setStatus('Saved & synced ✓',true); setTimeout(closeSettings,700);
-    }
-    catch(e){ setStatus('Saved locally, sync failed: '+e.message,false); }
+    localDirty=true; await syncSettled();
+    renderSetInfo();
+    if(lastSyncErr){ setStatusHtml('Saved on this device, but sync failed. '+explainSyncErr(lastSyncErr), false); return; }
+    setStatus('Saved & synced ✓',true); setTimeout(closeSettings,900);
+  }
+  function fmtKB(bytes){ const kb=bytes/1024; return (kb<10?kb.toFixed(1):Math.round(kb))+' KB'; }
+  function renderSetInfo(){
+    const kb=payloadBytes(allData())/1024, pct=kb/100*100, n=reqCount();
+    document.getElementById('setInfo').innerHTML =
+      `Log size <b style="color:${pct>=80?'var(--yellow)':'var(--text)'}">${fmtKB(kb*1024)}</b> of 100 KB free-plan limit · `+
+      `<b>${n.toLocaleString('en-US')}</b> requests from this device (free plan: 10,000 per account, lifetime)`+
+      (pct>=80?'<br><span style="color:var(--yellow)">Close to the size limit: uploads will stop at 100 KB.</span>':'');
   }
   function downloadBackup(){
     const blob=new Blob([JSON.stringify(allData(),null,2)],{type:'application/json'});
