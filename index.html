@@ -287,6 +287,13 @@
     .status-msg { font-size: 12px; margin-top: 10px; min-height: 16px; line-height: 1.5; }
     .set-info { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
     .set-info b { color: var(--text); }
+    .set-info .mini-btn { padding: 2px 8px; font-size: 10px; margin-left: 2px; }
+    .set-link { color: var(--accent); font-weight: 700; text-decoration: none; margin-left: 4px; }
+    details.setup { background: var(--surface2); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+    details.setup summary { font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; }
+    details.setup summary::-webkit-details-marker { display: none; }
+    details.setup ol { margin: 10px 0 0 18px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+    details.setup li { margin-bottom: 5px; } details.setup b { color: var(--text); }
     .sync-pill { cursor: pointer; }
     .status-msg.ok { color: var(--accent); } .status-msg.err { color: var(--red); }
     .warn { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.5; color: #fca5a5; margin-bottom: 14px; }
@@ -599,17 +606,25 @@
 <div class="modal-bg" id="settingsModal" style="display:none">
   <div class="modal">
     <h2>Settings</h2>
-    <p class="desc">Sync your log across devices with JSONBin. Your key is stored only in this browser — never in the app's code.</p>
-    <div class="warn">
-      <strong>Use an Access Key</strong> with <em>Bins → Read</em> and <em>Bins → Update</em> ticked — not your Master Key, which would expose your whole JSONBin account. Test checks both.
+    <p class="desc">Sync your log across devices through a <b>secret gist</b> on your GitHub account. Every save is kept in the gist’s revision history.</p>
+    <details class="setup" id="setupSteps">
+      <summary>First-time setup (2 min) ▾</summary>
+      <ol>
+        <li>On GitHub: <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</b>.</li>
+        <li>Name it “HDH Log”, pick an expiration, and leave Repository access on <b>Public repositories</b>.</li>
+        <li>Under <b>Account permissions</b>, set <b>Gists → Read and write</b>. Nothing else.</li>
+        <li>Generate, copy the token, paste it below, and tap Save &amp; Sync. Leave Gist ID blank: the app finds or creates the gist.</li>
+        <li>On your other devices, paste the same token and Save &amp; Sync. They find the same gist on their own.</li>
+      </ol>
+    </details>
+    <div class="warn">Secret gists are unlisted, not private: anyone with the gist’s exact link can view it. Don’t share the link. The token can only touch your gists, and it’s stored only in this browser.</div>
+    <div class="field">
+      <label for="setToken">GitHub token</label>
+      <input type="password" id="setToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
     </div>
     <div class="field">
-      <label>Bin ID</label>
-      <input type="text" id="setBin" placeholder="JSONBin Bin ID" autocomplete="off">
-    </div>
-    <div class="field">
-      <label>Access Key (X-Access-Key)</label>
-      <input type="password" id="setKey" placeholder="Paste your JSONBin Access Key" autocomplete="off">
+      <label for="setGist">Gist ID <span style="font-weight:500">(optional: found or created automatically)</span></label>
+      <input type="text" id="setGist" placeholder="leave blank" autocomplete="off" spellcheck="false">
     </div>
     <div class="row" style="margin-bottom:8px">
       <button class="btn btn-ghost" onclick="testConn()">Test</button>
@@ -721,55 +736,101 @@
     if(k===current && document.getElementById('view-log').classList.contains('active')){ renderSummary(); renderWeighCtx(); }
   }
 
-  // ═══════════════ JSONBin sync ═══════════════
-  const API_BASE='https://api.jsonbin.io/v3/b/';
-  function getBin(){ return localStorage.getItem('jsonbinId') || '6a1fb38df5f4af5e29b08cec'; }
-  function getKey(){ return localStorage.getItem('jsonbinKey') || ''; }
+  // ═══════════════ Sync: GitHub secret gist ═══════════════
+  // The whole log lives in one file of a secret (unlisted) gist on the user's GitHub account.
+  // Every save is a gist revision, so GitHub keeps the full history.
+  const GH_API='https://api.github.com';
+  const GIST_FILE='hdh-log.json';
+  const GIST_SOFT_LIMIT = 900*1024;   // API returns file content in full up to 1 MB; beyond that we fetch raw_url
+  const lsGet=k=>{ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } };
+  const lsSet=(k,v)=>{ try{ v?localStorage.setItem(k,v):localStorage.removeItem(k); }catch(e){} };
+  function ghToken(){ return lsGet('ghToken'); }
+  function gistId(){ return lsGet('gistId'); }
+  function syncReady(){ return !!(ghToken() && gistId()); }
+  function legacyJsonbin(){ return lsGet('jsonbinKey') ? { key:lsGet('jsonbinKey'), bin:lsGet('jsonbinId')||'6a1fb38df5f4af5e29b08cec' } : null; }
   function setSync(state, txt){
     const p=document.getElementById('syncPill');
     p.className='sync-pill'+(state?(' '+state):'');
     document.getElementById('syncTxt').textContent=txt;
   }
+  function idleLabel(){ return legacyJsonbin() ? 'Set up sync' : 'Local only'; }
 
-  // ── JSONBin transport — keeps the real status + JSONBin's message instead of a bare "error" ──
-  const JSONBIN_FREE_LIMIT = 100*1024;      // free plan: 100 KB per bin
-  const JSONBIN_FREE_REQS = 10000;          // free plan: 10,000 requests per account, lifetime (not monthly)
   let lastSyncErr=null, lastSyncOk=0, localDirty=false;
-  function reqCount(){ try{ return +(localStorage.getItem('jsonbinReqs')||0); }catch(e){ return 0; } }
-  function countReq(){ try{ localStorage.setItem('jsonbinReqs', reqCount()+1); }catch(e){} }
-  async function apiFetch(stage, url, opts){
-    let res; countReq();
-    try{ res=await fetch(url, opts); }
+  // fetch wrapper: never serve GitHub's 60 s cached copy, and keep status + GitHub's message on failure.
+  async function ghFetch(stage, path, opts, token){
+    opts=Object.assign({ cache:'no-store' }, opts||{});
+    opts.headers=Object.assign({ 'Accept':'application/vnd.github+json', 'Authorization':'Bearer '+(token||ghToken()) }, opts.headers||{});
+    let res;
+    try{ res=await fetch(GH_API+path, opts); }
     catch(e){ const err=new Error('network'); err.stage=stage; err.status=0; throw err; }
     if(!res.ok){
       let msg=''; try{ const j=await res.json(); msg=j.message||''; }catch(e){}
-      const err=new Error('HTTP '+res.status); err.stage=stage; err.status=res.status; err.detail=msg; throw err;
+      const err=new Error('HTTP '+res.status); err.stage=stage; err.status=res.status; err.detail=msg;
+      err.rateLimited = res.headers.get('x-ratelimit-remaining')==='0' || /rate limit/i.test(msg) || res.status===429;
+      throw err;
     }
     return res;
   }
-  async function pullRemote(bin, key){
-    key=key||getKey(); if(!key) return null;
-    const res=await apiFetch('read', API_BASE+(bin||getBin())+'/latest', { headers:{ 'X-Access-Key':key, 'X-Bin-Meta':'false' } });
-    return await res.json();
+  function parseLog(text){
+    if(!text || !text.trim()) return {};
+    try{ const v=JSON.parse(text); return (v && typeof v==='object' && !Array.isArray(v)) ? v : {}; }
+    catch(e){ const err=new Error('corrupt'); err.stage='read'; err.status=-1; throw err; }
+  }
+  async function pullRemote(id, token){
+    const g=await (await ghFetch('read','/gists/'+(id||gistId()),{},token)).json();
+    const f=g.files && g.files[GIST_FILE];
+    if(!f) return {};
+    if(f.truncated){   // > 1 MB: the API cuts content off; the raw URL has the full file
+      let r; try{ r=await fetch(f.raw_url,{cache:'no-store'}); }catch(e){ const err=new Error('network'); err.stage='read'; err.status=0; throw err; }
+      if(!r.ok){ const err=new Error('raw'); err.stage='read'; err.status=r.status; throw err; }
+      return parseLog(await r.text());
+    }
+    return parseLog(f.content);
   }
   function payloadBytes(data){ return new Blob([JSON.stringify(data)]).size; }
-  async function pushRemote(data, bin, key){
-    key=key||getKey(); if(!key) throw new Error('No key');
-    const body=JSON.stringify(data), bytes=new Blob([body]).size;
-    if(bytes>JSONBIN_FREE_LIMIT){ const err=new Error('too large'); err.stage='write'; err.status=413; err.detail=`${Math.round(bytes/1024)} KB`; throw err; }
-    await apiFetch('write', API_BASE+(bin||getBin()), { method:'PUT', headers:{ 'Content-Type':'application/json', 'X-Access-Key':key }, body });
+  async function pushRemote(data, id, token){
+    await ghFetch('write','/gists/'+(id||gistId()), { method:'PATCH', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ files:{ [GIST_FILE]:{ content:JSON.stringify(data) } } }) }, token);
   }
-  // Plain-English cause + fix for each failure JSONBin can return.
+  // Second device: the same token finds the gist on its own, so there's no ID to copy around.
+  async function findGist(token){
+    for(let page=1; page<=10; page++){
+      const list=await (await ghFetch('read','/gists?per_page=100&page='+page,{},token)).json();
+      const hit=list.find(g=>g.files && g.files[GIST_FILE]);
+      if(hit) return hit.id;
+      if(list.length<100) return null;
+    }
+    return null;
+  }
+  async function createGist(data, token){
+    const g=await (await ghFetch('write','/gists',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ description:'HDH Log sync data (managed by the HDH Log app, do not edit by hand)', public:false,
+        files:{ [GIST_FILE]:{ content:JSON.stringify(data) } } }) }, token)).json();
+    return g.id;
+  }
+  // One-time import from the old JSONBin sync (read-only, so a read-only key is fine).
+  async function importJsonbin(){
+    const L=legacyJsonbin(); if(!L) return null;
+    const res=await fetch('https://api.jsonbin.io/v3/b/'+L.bin+'/latest',{ headers:{ 'X-Access-Key':L.key, 'X-Bin-Meta':'false' }, cache:'no-store' });
+    if(!res.ok) throw new Error('JSONBin HTTP '+res.status);
+    const remote=await res.json();
+    const days = remote && typeof remote==='object' && !Array.isArray(remote) ? Object.keys(remote).length : 0;
+    if(days) saveAll(mergeData(allData(), remote));
+    lsSet('jsonbinKey',''); lsSet('jsonbinId',''); lsSet('jsonbinReqs','');
+    return days;
+  }
+
+  // Plain-English cause + fix for each failure GitHub can return.
   function explainSyncErr(e){
     if(!e) return '';
-    const s=e.status, d=e.detail && s!==413 ? ` JSONBin said: “${escHtml(e.detail)}”.` : '';
-    if(s===0) return 'Couldn’t reach JSONBin (offline or blocked). Your log is safe on this device and syncs when the connection is back.';
-    if(s===413) return `Your log is ${e.detail}, over JSONBin’s 100 KB free-plan limit per bin, so it can’t upload. Everything is still saved on this device.`;
-    if(s===401) return 'No key was sent. Paste your Access Key and save again.'+d;
-    if(s===403 && e.stage==='write') return '<b>This key can read the bin but not update it.</b> In JSONBin → API Keys → Access Keys, edit the key and tick <b>Bins → Update</b> (or make a new key with Read + Update), paste it here, then Save &amp; Sync.'+d;
-    if(s===403) return 'JSONBin refused the key: it’s mistyped, it lacks Bins → Read, the bin belongs to another account, or the account’s free request quota is used up.'+d;
-    if(s===404) return 'No bin with that ID. Copy the Bin ID again from JSONBin.'+d;
-    if(s===400) return 'JSONBin rejected the request, usually because of a mistyped Bin ID.'+d;
+    const s=e.status, d=e.detail ? ` GitHub said: “${escHtml(e.detail)}”.` : '';
+    if(s===0) return 'Couldn’t reach GitHub (offline or blocked). Your log is safe on this device and syncs when the connection is back.';
+    if(s===-1) return 'The gist’s log file isn’t valid JSON (edited by hand?). Nothing was overwritten. Open the gist’s revision history on GitHub and restore the last good version.';
+    if(e.rateLimited) return 'GitHub’s rate limit was hit. It resets within the hour, and nothing is lost in the meantime.'+d;
+    if(s===401) return 'GitHub rejected the token: it’s mistyped, expired, or revoked. Make a new one (steps below) and paste it here.'+d;
+    if(s===403) return '<b>The token can’t write gists.</b> On GitHub, edit the token and set Account permissions → <b>Gists: Read and write</b> (a classic token needs the <b>gist</b> scope).'+d;
+    if(s===404) return 'No gist with that ID on this account. Clear the Gist ID box and Save &amp; Sync: the app will find or create the right one.'+d;
+    if(s===422) return 'GitHub rejected the update.'+d;
     return `Sync failed (HTTP ${s}).`+d;
   }
 
@@ -808,13 +869,13 @@
   // A blind PUT of local data would overwrite days another device saved since this page last pulled.
   let syncTimer, syncing=false, syncAgain=false;
   function scheduleSync(){
-    if(!getKey()){ setSync('', 'Local'); return; }
+    if(!syncReady()){ setSync('', idleLabel()); return; }
     clearTimeout(syncTimer);
-    syncTimer=setTimeout(syncNow, 4000);   // coalesce bursts of edits into one GET+PUT
+    syncTimer=setTimeout(syncNow, 2500);   // coalesce bursts of edits into one GET+PATCH
   }
   let syncRun=null;
   function syncNow(){
-    if(!getKey()){ setSync('','Local only'); return Promise.resolve(); }
+    if(!syncReady()){ setSync('', idleLabel()); return Promise.resolve(); }
     if(syncing){ syncAgain=true; return syncRun; }
     syncing=true; setSync('busy','Syncing…');
     const wasDirty=localDirty; localDirty=false;
@@ -828,7 +889,7 @@
         const m=stableStr(merged);
         const localChanged = m!==stableStr(local);
         if(localChanged) saveAll(merged);
-        // Never upload an empty log (JSONBin rejects blank bins, and there's nothing to protect).
+        // Never upload an empty log: there's nothing to protect, and it would wipe the gist on a fresh device.
         if(m!==stableStr(remote) && Object.keys(merged).length) await pushRemote(merged);
         if(localChanged) refreshAfterSync();
         lastSyncErr=null; lastSyncOk=Date.now();
@@ -862,9 +923,9 @@
     if(active('export')) buildExport();
   }
   // Pick up other devices' changes when returning to the app or coming back online.
-  // Requests are metered (free plan: 10,000 per account, lifetime), so: pull on return only if it's
-  // been 5+ minutes, and flush pending edits when the app is hidden instead of waiting on the timer.
-  const FOCUS_PULL_MS = 5*60*1000;
+  // Pull on return if it's been a minute (GitHub allows 5,000 requests/h), and flush pending
+  // edits the moment the app is hidden instead of waiting on the timer.
+  const FOCUS_PULL_MS = 60*1000;
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState==='visible'){ if(localDirty || Date.now()-lastSyncOk>FOCUS_PULL_MS) syncNow(); }
     else { flushBody(); flushNotes(); flushNutrition(); if(localDirty){ clearTimeout(syncTimer); syncNow(); } }
@@ -1825,51 +1886,76 @@
 
   // ═══════════════ Settings ═══════════════
   function openSettings(){
-    document.getElementById('setBin').value=getBin();
-    document.getElementById('setKey').value=getKey();
+    document.getElementById('setToken').value=ghToken();
+    document.getElementById('setGist').value=gistId();
     document.getElementById('setStatus').textContent='';
     document.getElementById('setStatus').className='status-msg';
     if(lastSyncErr) setStatusHtml('Last sync failed. '+explainSyncErr(lastSyncErr), false);
+    else if(legacyJsonbin()) setStatusHtml('Your old JSONBin sync is still set up on this device. Save &amp; Sync imports its data once, then switches this device to your gist.', true);
     renderSetInfo();
+    document.getElementById('setupSteps').open = !ghToken();
     document.getElementById('settingsModal').style.display='flex';
   }
   function closeSettings(){ document.getElementById('settingsModal').style.display='none'; }
   function setStatus(msg, ok){ const el=document.getElementById('setStatus'); el.textContent=msg; el.className='status-msg '+(ok?'ok':'err'); }
-
   function setStatusHtml(html, ok){ const el=document.getElementById('setStatus'); el.innerHTML=html; el.className='status-msg '+(ok?'ok':'err'); }
-  // Read, then write the bin's own contents back unchanged — proves Update permission without changing anything.
-  async function testConn(){
-    const bin=document.getElementById('setBin').value.trim(), key=document.getElementById('setKey').value.trim();
-    if(!bin||!key){ setStatus('Enter both Bin ID and Access Key.',false); return; }
-    setStatus('Testing read…',true);
-    let remote;
-    try{ remote=await pullRemote(bin,key); }
-    catch(e){ setStatusHtml('Read failed. '+explainSyncErr(e), false); return; }
-    const days = remote && typeof remote==='object' && !Array.isArray(remote) ? Object.keys(remote).length : 0;
-    if(!days){ setStatusHtml('Read ✓. The bin is empty, so there was nothing safe to write back. Save &amp; Sync will do the first upload.', true); return; }
-    setStatus('Read ✓ · testing write…',true);
-    try{ await pushRemote(remote,bin,key); setStatusHtml(`Read ✓ · Write ✓ · bin holds ${days} days (${fmtKB(payloadBytes(remote))} of 100 KB).`, true); }
-    catch(e){ setStatusHtml('Read ✓ · <b>Write failed.</b> '+explainSyncErr(e), false); }
-    renderSetInfo();
-  }
-  async function saveSettings(){
-    const bin=document.getElementById('setBin').value.trim(), key=document.getElementById('setKey').value.trim();
-    if(!bin||!key){ setStatus('Enter both Bin ID and Access Key.',false); return; }
-    localStorage.setItem('jsonbinId', bin);
-    localStorage.setItem('jsonbinKey', key);
-    setStatus('Saved. Syncing…',true);
-    localDirty=true; await syncSettled();
-    renderSetInfo();
-    if(lastSyncErr){ setStatusHtml('Saved on this device, but sync failed. '+explainSyncErr(lastSyncErr), false); return; }
-    setStatus('Saved & synced ✓',true); setTimeout(closeSettings,900);
-  }
   function fmtKB(bytes){ const kb=bytes/1024; return (kb<10?kb.toFixed(1):Math.round(kb))+' KB'; }
+
+  // Test: token works; if a gist ID is given, read it and write its own contents back unchanged.
+  async function testConn(){
+    const token=document.getElementById('setToken').value.trim(), id=document.getElementById('setGist').value.trim();
+    if(!token){ setStatus('Paste your GitHub token first.',false); return; }
+    setStatus('Testing…',true);
+    try{
+      if(!id){
+        const found=await findGist(token);
+        setStatusHtml(found ? `Token ✓ · found your log gist (${found.slice(0,8)}…). Save &amp; Sync will use it.` : 'Token ✓ · no log gist yet. Save &amp; Sync will create a secret one.', true);
+        return;
+      }
+      const remote=await pullRemote(id, token), days=Object.keys(remote).length;
+      setStatus('Read ✓ · testing write…',true);
+      await pushRemote(remote, id, token);
+      setStatusHtml(`Read ✓ · Write ✓ · gist holds ${days} days (${fmtKB(payloadBytes(remote))}).`, true);
+    }catch(e){ setStatusHtml((e.stage==='write'?'Read ✓ · <b>Write failed.</b> ':'<b>Failed.</b> ')+explainSyncErr(e), false); }
+  }
+
+  async function saveSettings(){
+    const token=document.getElementById('setToken').value.trim();
+    let id=document.getElementById('setGist').value.trim();
+    if(!token){ setStatus('Paste your GitHub token first.',false); return; }
+    const notes=[];
+    try{
+      if(legacyJsonbin()){
+        setStatus('Importing from JSONBin…',true);
+        try{ const n=await importJsonbin(); notes.push(n?`imported ${n} days from JSONBin`:'JSONBin was empty'); }
+        catch(e){ notes.push('couldn’t read the old JSONBin data ('+e.message+'), so this device’s local log is used'); }
+      }
+      if(!id){
+        setStatus('Looking for your log gist…',true);
+        id=await findGist(token);
+        if(id) notes.push('found your existing gist');
+        else { setStatus('Creating a secret gist…',true); id=await createGist(allData(), token); notes.push('created a secret gist'); }
+      }
+    }catch(e){ setStatusHtml('<b>Couldn’t set up the gist.</b> '+explainSyncErr(e), false); renderSetInfo(); return; }
+    lsSet('ghToken', token); lsSet('gistId', id);
+    document.getElementById('setGist').value=id;
+    setStatus('Syncing…',true);
+    localDirty=true; await syncSettled();
+    renderSetInfo(); refreshAfterSync();
+    if(lastSyncErr){ setStatusHtml('Saved on this device, but sync failed. '+explainSyncErr(lastSyncErr), false); return; }
+    setStatusHtml('Synced ✓'+(notes.length?' · '+notes.join(' · '):''), true);
+  }
+  function copyGistId(btn){
+    const id=gistId(); if(!id) return;
+    const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy ID',1500); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done).catch(()=>{});
+  }
   function renderSetInfo(){
-    const kb=payloadBytes(allData())/1024, pct=kb/100*100, n=reqCount();
+    const id=gistId(), bytes=payloadBytes(allData());
     document.getElementById('setInfo').innerHTML =
-      `Log size <b style="color:${pct>=80?'var(--yellow)':'var(--text)'}">${fmtKB(kb*1024)}</b> of 100 KB free-plan limit · `+
-      `<b>${n.toLocaleString('en-US')}</b> requests from this device (free plan: 10,000 per account, lifetime)`+
-      (pct>=80?'<br><span style="color:var(--yellow)">Close to the size limit: uploads will stop at 100 KB.</span>':'');
+      `Log size <b>${fmtKB(bytes)}</b>`+(bytes>GIST_SOFT_LIMIT?' (large: the app fetches it via the raw file link)':'')+
+      (id?` · gist <b>${escHtml(id.slice(0,8))}…</b> <button class="mini-btn" onclick="copyGistId(this)">Copy ID</button> <a class="set-link" href="https://gist.github.com/${encodeURIComponent(id)}" target="_blank" rel="noopener">History ↗</a>`:'')+
+      (lastSyncOk?`<br>Last synced ${new Date(lastSyncOk).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`:'');
   }
   function downloadBackup(){
     const blob=new Blob([JSON.stringify(allData(),null,2)],{type:'application/json'});
