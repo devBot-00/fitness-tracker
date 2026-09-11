@@ -287,6 +287,53 @@
     .status-msg { font-size: 12px; margin-top: 10px; min-height: 16px; }
     .status-msg.ok { color: var(--accent); } .status-msg.err { color: var(--red); }
     .warn { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.5; color: #fca5a5; margin-bottom: 14px; }
+
+    /* ── Maintenance ── */
+    .mt-hero { text-align: center; padding: 6px 0 2px; }
+    .mt-big { font-size: 40px; font-weight: 800; letter-spacing: -1px; line-height: 1; color: var(--yellow); }
+    .mt-big .u { font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+    .mt-pm { font-size: 13px; color: var(--text); font-weight: 700; margin-top: 8px; }
+    .mt-range { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .mt-src { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+    .conf-pill { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; border-radius: 20px; padding: 3px 9px; border: 1px solid; }
+    .conf-pill.hi  { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
+    .conf-pill.mid { color: var(--yellow); border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
+    .conf-pill.lo  { color: var(--red);    border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+    .mt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mt-stat { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+    .mt-stat .lbl { font-size: 10px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+    .mt-stat .val { font-size: 17px; font-weight: 800; display: block; line-height: 1.15; }
+    .mt-stat .sub2 { font-size: 11px; color: var(--muted); font-weight: 600; display: block; margin-top: 2px; }
+    .mt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .mt-chips button {
+      flex: 1 1 auto; background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      border-radius: 8px; padding: 7px 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .mt-chips button.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+    .mt-rec { background: var(--surface2); border-radius: 10px; padding: 12px 14px; }
+    .mt-rec-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; color: var(--muted); padding: 5px 0; }
+    .mt-rec-row strong { color: var(--text); font-size: 15px; font-weight: 800; white-space: nowrap; }
+    .mt-rec-row strong.y { color: var(--yellow); font-size: 20px; }
+    .mt-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 10px; }
+    .mt-alert { border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 8px; border: 1px solid; }
+    .mt-alert.warn2 { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.3); color: #fcd34d; }
+    .mt-alert.bad   { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.3); color: #fca5a5; }
+    .mt-alert.info  { background: rgba(96,165,250,0.07); border-color: rgba(96,165,250,0.3); color: #93c5fd; }
+    .mt-date-row { display: flex; gap: 8px; align-items: center; }
+    .mt-date-row input[type=date] {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+      font-size: 14px; font-weight: 600; padding: 8px 10px; outline: none; font-family: inherit; color-scheme: dark; min-width: 0;
+    }
+    .mt-date-row button {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px;
+      padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .mt-progress { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin: 10px 0 4px; }
+    .mt-progress > div { height: 100%; background: var(--accent); }
+    details.mt-how summary { font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; list-style: none; }
+    details.mt-how summary::-webkit-details-marker { display: none; }
+    details.mt-how p { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+    details.mt-how p b { color: var(--text); }
   </style>
 </head>
 <body>
@@ -377,6 +424,42 @@
   </div>
 </div>
 
+<!-- ═══ MAINTENANCE VIEW ═══ -->
+<div class="view" id="view-maint">
+  <div class="content">
+    <div id="mtMain"></div>
+
+    <div class="card">
+      <div class="card-title">Data window <span class="sub" id="mtWinSub"></span></div>
+      <div class="mt-chips" id="mtWinChips">
+        <button data-w="21">21D</button>
+        <button data-w="28">28D</button>
+        <button data-w="42">42D</button>
+        <button data-w="56">56D</button>
+        <button data-w="0">All</button>
+      </div>
+      <div class="input-group">
+        <label>Ignore data before (set to ~10 days after any diet change)</label>
+        <div class="mt-date-row">
+          <input type="date" id="mtStart" onchange="setMtStart(this.value)">
+          <button onclick="setMtStart('')">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details class="mt-how">
+        <summary>How this works ▾</summary>
+        <p><b>Energy balance:</b> maintenance = average intake − (weight trend × 3,500 kcal/lb). If you ate 1,750/day and lost 1.6 lb/week, you were 800 kcal/day under maintenance, so maintenance ≈ 2,550.</p>
+        <p><b>Why a regression:</b> daily weight swings 1–3 lb on water, sodium, glycogen and gut contents, while real tissue change is ~0.1–0.2 lb/day. Fitting a line through every weigh-in uses all the data, so the slope firms up much faster than comparing two weekly averages.</p>
+        <p><b>The ± range</b> is a 95% interval from the scatter of your weigh-ins around the line, widened for day-to-day water carryover (a salty meal or a hard leg day moves weight for 2–3 days, so neighbouring weigh-ins aren't independent). It shrinks roughly with days<sup>1.5</sup>. With typical carryover that's about ±250 at 4 steady weeks and ±150 at 6; consistent food, sodium and weigh-in timing tighten it. The band was calibrated by simulation to contain the true value ~95% of the time.</p>
+        <p><b>What it can't see:</b> logging errors. If intake is under-logged by 200 kcal, maintenance reads 200 low. It also can't separate fat from water, so any intake change resets glycogen/water for ~10 days. Use the start-date filter to skip that.</p>
+        <p><b>Intake timing:</b> a morning weigh-in reflects food through the night before, so intake is counted from the first weigh-in day up to (not including) the last one, each day weighted exactly as the regression weights that day's weight change.</p>
+      </details>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ HISTORY VIEW ═══ -->
 <div class="view" id="view-history"><div class="content" id="historyEl"></div></div>
 
@@ -399,6 +482,7 @@
 <nav class="nav">
   <button class="nav-btn active" id="nav-log" onclick="switchView('log')"><span class="nav-icon">📋</span>Log</button>
   <button class="nav-btn" id="nav-progress" onclick="switchView('progress')"><span class="nav-icon">📈</span>Progress</button>
+  <button class="nav-btn" id="nav-maint" onclick="switchView('maint')"><span class="nav-icon">🔥</span>Maintenance</button>
   <button class="nav-btn" id="nav-history" onclick="switchView('history')"><span class="nav-icon">🗓️</span>History</button>
   <button class="nav-btn" id="nav-export" onclick="switchView('export')"><span class="nav-icon">📤</span>Export</button>
 </nav>
@@ -580,6 +664,7 @@
         // Push back if local had anything newer than remote.
         loadDay();
         if(document.getElementById('view-progress').classList.contains('active')) renderProgress();
+        if(document.getElementById('view-maint').classList.contains('active')) renderMaint();
       }
       setSync('ok','Synced');
     }catch(e){ setSync('err','Sync error'); }
@@ -780,12 +865,13 @@
 
   // ═══════════════ Views ═══════════════
   function switchView(v){
-    ['log','progress','history','export'].forEach(n=>{
+    ['log','progress','maint','history','export'].forEach(n=>{
       document.getElementById(`view-${n}`).classList.toggle('active', n===v);
       document.getElementById(`nav-${n}`).classList.toggle('active', n===v);
     });
     document.getElementById('daybar').style.display = (v==='log')?'flex':'none';
     if(v==='progress') renderProgress();
+    if(v==='maint') renderMaint();
     if(v==='history') buildHistory();
     if(v==='export') buildExport();
   }
@@ -914,6 +1000,269 @@
       ${areaFill}${line}${dots}${xa}${ya}</svg>`;
   }
 
+  // ═══════════════ Maintenance estimator ═══════════════
+  // maintenance = mean intake − (weight slope × 3500 kcal/lb), slope from OLS over daily weigh-ins.
+  // Error band: OLS slope SE, inflated for lag-1 autocorrelation of residuals (water carryover),
+  // with a t critical value on the effective sample size.
+  const KCAL_PER_LB = 3500;
+  const FAT_KCAL_PER_LB_DAY = 31;      // approx. max daily energy release per lb of fat mass (Alpert 2005)
+  const MT_CFG_KEY = 'maintCfg';       // per-device settings, kept out of the synced day-map
+  const MT_MIN = { weighs: 7, span: 10, intake: 7 };
+  const MT_RATES = [-1.0, -0.7, -0.5, 0, 0.25, 0.4]; // % bodyweight per week
+  const RHO_MARGIN_Z = 1.0;
+
+  function mtCfg(){
+    const def={ win:42, start:'', rate:-0.7 };
+    try{ return Object.assign(def, JSON.parse(localStorage.getItem(MT_CFG_KEY)||'{}')); }catch(e){ return def; }
+  }
+  function saveMtCfg(c){ try{ localStorage.setItem(MT_CFG_KEY, JSON.stringify(c)); }catch(e){} }
+  function setMtStart(v){ const c=mtCfg(); c.start=v||''; saveMtCfg(c); renderMaint(); }
+  function setMtRate(r){ const c=mtCfg(); c.rate=r; saveMtCfg(c); renderMaint(); }
+  document.getElementById('mtWinChips').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const c=mtCfg(); c.win=parseInt(b.dataset.w); saveMtCfg(c); renderMaint();
+  });
+
+  function dateKey(dt){ return [dt.getFullYear(),pad(dt.getMonth()+1),pad(dt.getDate())].join('-'); }
+  function addDaysKey(k,n){ const dt=keyToDate(k); dt.setDate(dt.getDate()+n); return dateKey(dt); }
+  function dayDiff(a,b){ return Math.round((keyToDate(b)-keyToDate(a))/86400000); } // rounding absorbs DST hours
+  function shortDate(k){ const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const d=keyToDate(k); return `${m[d.getMonth()]} ${d.getDate()}`; }
+  function kc(n){ return Math.round(n).toLocaleString('en-US'); }
+  function sgn(n,d){ const r=round(n,d); return (r>0?'+':(r<0?'−':''))+Math.abs(r).toLocaleString('en-US'); }
+
+  // Two-sided 95% Student-t critical value (Cornish–Fisher; within ~0.03 of tables for df ≥ 4).
+  function t95(df){
+    df=Math.max(df,3);
+    const z=1.959964, z3=z*z*z, z5=z3*z*z, z7=z5*z*z;
+    return z + (z3+z)/(4*df) + (5*z5+16*z3+3*z)/(96*df*df) + (3*z7+19*z5+17*z3-15*z)/(384*df*df*df);
+  }
+
+  // AR(1) water-noise model for weigh-in residuals: cov(i,j) = σ²·ρ^|xi−xj|.
+  // Residuals off a fitted line understate ρ, so solve for the ρ whose *expected* residual lag-1
+  // ratio matches the observed one, then return the exact OLS-slope variance factor under that ρ.
+  // H = UUᵀ (U = [1/√n, (x−x̄)/√Sxx]) is rank 2, so everything is O(n²).
+  function ar1Fit(xs, e, sxx){
+    const n=xs.length, xb=xs.reduce((a,b)=>a+b,0)/n;
+    const u0=1/Math.sqrt(n), u1=xs.map(x=>(x-xb)/Math.sqrt(sxx));
+    const pairs=[]; for(let i=1;i<n;i++) if(xs[i]-xs[i-1]<=2) pairs.push(i);
+    const sse=e.reduce((a,v)=>a+v*v,0);
+    let num=0; pairs.forEach(i=>{ num+=e[i]*e[i-1]; });
+    const obs = sse>0 ? num/sse : 0;
+    function stats(rho){
+      const SU0=new Array(n).fill(0), SU1=new Array(n).fill(0);
+      for(let i=0;i<n;i++) for(let j=0;j<n;j++){ const s=rho===0?(i===j?1:0):Math.pow(rho,Math.abs(xs[i]-xs[j])); SU0[i]+=s*u0; SU1[i]+=s*u1[j]; }
+      let G00=0,G01=0,G11=0; for(let i=0;i<n;i++){ G00+=u0*SU0[i]; G01+=u0*SU1[i]; G11+=u1[i]*SU1[i]; }
+      const trMS=n-(G00+G11);
+      // (MSM)_ij = S_ij − U_i·(UᵀS)_j − (SU)_i·U_j + U_i·G·U_jᵀ
+      const msm=(i,j)=>{ const s=rho===0?(i===j?1:0):Math.pow(rho,Math.abs(xs[i]-xs[j]));
+        return s - (u0*SU0[j]+u1[i]*SU1[j]) - (SU0[i]*u0+SU1[i]*u1[j]) + (u0*G00*u0 + u0*G01*u1[j] + u1[i]*G01*u0 + u1[i]*G11*u1[j]); };
+      let tAM=0; pairs.forEach(i=>{ tAM+=msm(i,i-1); });
+      return { g:tAM/trMS, trMS, cSc:G11/sxx };
+    }
+    let rho;
+    if(obs<=stats(0).g) rho=0;
+    else if(obs>=stats(0.95).g) rho=0.95;
+    else { let lo=0, hi=0.95; for(let it=0;it<30;it++){ const mid=(lo+hi)/2; if(stats(mid).g<obs) lo=mid; else hi=mid; } rho=(lo+hi)/2; }
+    // ρ̂ is itself noisy (SE ≈ √((1−ρ²)/n)); an underestimate shrinks the band exactly when the
+    // error is largest, so size the band at a modestly conservative ρ. Calibrated by simulation.
+    const rhoUsed=Math.min(0.95, rho + RHO_MARGIN_Z*Math.sqrt((1-rho*rho)/n));
+    const f=stats(rhoUsed);
+    return { rho, rhoUsed, trMS:f.trMS, cSc:f.cSc, obs };
+  }
+
+  // Find the split point with the largest intake step (≥4 logged days each side).
+  function intakeStep(pts){
+    if(pts.length<8) return null;
+    let best=null;
+    for(let i=4;i<=pts.length-4;i++){
+      const a=pts.slice(0,i), b=pts.slice(i);
+      const ma=a.reduce((s,p)=>s+p.c,0)/a.length, mb=b.reduce((s,p)=>s+p.c,0)/b.length;
+      const d=mb-ma;
+      if(!best || Math.abs(d)>Math.abs(best.diff)) best={ diff:d, at:pts[i].k, before:ma, after:mb };
+    }
+    return best;
+  }
+
+  function estimateMaint(){
+    const data=allData(), cfg=mtCfg(), today=todayKey();
+    let startKey = cfg.win>0 ? addDaysKey(today, -(cfg.win-1)) : '0000-00-00';
+    if(cfg.start && cfg.start>startKey) startKey=cfg.start;
+    const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k) && k>=startKey && k<=today).sort();
+    const weighKeys=keys.filter(k=>{ const w=data[k].body&&data[k].body.weight; return w>0; });
+    const R={ cfg, startKey, today, nW:weighKeys.length, warnings:[] };
+    R.first=weighKeys[0]; R.last=weighKeys[weighKeys.length-1];
+    R.span = weighKeys.length>1 ? dayDiff(R.first,R.last) : 0;
+
+    // Intake from first weigh-in day up to (not incl.) the last: that's the food the weight change reflects.
+    const intake = weighKeys.length>1
+      ? keys.filter(k=>k>=R.first && k<R.last).map(k=>({k, c:dayTotals(data[k]).cals, p:dayTotals(data[k]).pro})).filter(p=>p.c>0)
+      : [];
+    R.nI=intake.length;
+    R.coverage = R.span>0 ? R.nI/R.span : 0;
+
+    if(R.nW<MT_MIN.weighs || R.span<MT_MIN.span || R.nI<MT_MIN.intake){ R.status='building'; return R; }
+
+    // OLS: weight vs day index
+    const pts=weighKeys.map(k=>({ k, x:dayDiff(R.first,k), y:+data[k].body.weight }));
+    const n=pts.length;
+    const xb=pts.reduce((s,p)=>s+p.x,0)/n, yb=pts.reduce((s,p)=>s+p.y,0)/n;
+    let sxx=0, sxy=0; pts.forEach(p=>{ sxx+=(p.x-xb)**2; sxy+=(p.x-xb)*(p.y-yb); });
+    const slope=sxy/sxx, icpt=yb-slope*xb;
+    pts.forEach(p=>{ p.fit=icpt+slope*p.x; p.e=p.y-p.fit; });
+    const sse=pts.reduce((s,p)=>s+p.e*p.e,0);
+    const ar=ar1Fit(pts.map(p=>p.x), pts.map(p=>p.e), sxx);
+    const r1=ar.rho;
+    const sigma2=Math.max(sse/ar.trMS, 0.04);                      // water-noise variance, floor at scale resolution
+    const seSlope=Math.sqrt(sigma2*ar.cSc);
+    const nEff=n*(1-r1)/(1+r1);
+    const df=Math.max(nEff-2, 1);
+
+    // Intake weighted exactly as the OLS slope weights each day's weight change, so both sides
+    // of the energy balance cover the same days. Day j's food drives the j→j+1 change; its weight
+    // is Σ(x_i − x̄)/Sxx over weigh-ins after day j (all ≥ 0, sum to 1).
+    const inByDay={}; intake.forEach(p=>{ inByDay[dayDiff(R.first,p.k)]=p.c; });
+    let wSum=0, wcSum=0;
+    for(let j=0;j<R.span;j++){
+      if(inByDay[j]==null) continue;
+      let w=0; pts.forEach(p=>{ if(p.x>j) w+=(p.x-xb)/sxx; });
+      wSum+=w; wcSum+=w*inByDay[j];
+    }
+    const avgIn = wSum>0 ? wcSum/wSum : intake.reduce((a,p)=>a+p.c,0)/R.nI;
+    const pIn=intake.filter(p=>p.p>0);
+    const avgPro=pIn.length? pIn.reduce((a,p)=>a+p.p,0)/pIn.length : null;
+    const tdee=avgIn - slope*KCAL_PER_LB;
+    const ci=t95(df)*seSlope*KCAL_PER_LB;
+    const trendW=icpt+slope*R.span;
+
+    Object.assign(R,{ status:'ok', pts, slope, icpt, sigma:Math.sqrt(sigma2), r1, nEff, tdee, ci, avgIn, avgPro, trendW,
+      lbWk:slope*7, pctWk:slope*7/trendW*100, balance:slope*KCAL_PER_LB, residSD:Math.sqrt(sse/(n-2)) });
+
+    // Confidence grade (CI width, capped by intake coverage)
+    let g = ci<=150 ? 2 : (ci<=300 ? 1 : 0);
+    if(R.coverage<0.6) g=0; else if(R.coverage<0.8) g=Math.min(g,1);
+    R.grade=['lo','mid','hi'][g]; R.gradeTxt=['Low','Moderate','High'][g]+' confidence';
+
+    // Fat-release ceiling from logged body-fat % (scale BIA: rough)
+    const bfs=keys.filter(k=>data[k].body&&data[k].body.bf>0).slice(-7).map(k=>+data[k].body.bf);
+    if(bfs.length){ R.bf=bfs.reduce((a,b)=>a+b,0)/bfs.length; R.fatLb=trendW*R.bf/100; R.ceiling=R.fatLb*FAT_KCAL_PER_LB_DAY; }
+
+    // ── Warnings ──
+    const step=intakeStep(intake);
+    if(step && Math.abs(step.diff)>=250){
+      const sugg=addDaysKey(step.at,10);
+      R.warnings.push({ cls:'warn2', html:`Intake shifted <b>${sgn(step.diff,0)} kcal/day</b> around <b>${shortDate(step.at)}</b> (${kc(step.before)} → ${kc(step.after)}). The glycogen and water shift from that change biases the slope for ~10 days.`+
+        (sugg<=today && dayDiff(sugg,today)>=MT_MIN.span ? ` <a href="#" onclick="setMtStart('${sugg}');return false" style="color:inherit;font-weight:700">Ignore data before ${shortDate(sugg)} →</a>` : ` Once you have ~2 steady weeks past ${shortDate(sugg)}, set the start date there.`) });
+    }
+    if(R.coverage<0.8){
+      R.warnings.push({ cls:'warn2', html:`Calories logged on <b>${R.nI} of ${R.span}</b> days. Missing days are assumed to match your logged average. If they were higher (weekends, meals out), maintenance reads high.` });
+    }
+    const gap=dayDiff(R.last,today);
+    if(gap>3) R.warnings.push({ cls:'info', html:`Last weigh-in was ${gap} days ago (${shortDate(R.last)}). The estimate covers ${shortDate(R.first)}–${shortDate(R.last)}.` });
+    if(R.ceiling && -R.balance>R.ceiling){
+      R.warnings.push({ cls:'bad', html:`Current deficit (~${kc(-R.balance)} kcal/day) is above the ~${kc(R.ceiling)} kcal/day your fat stores can release (≈${FAT_KCAL_PER_LB_DAY} kcal per lb of fat per day, at ${round(R.bf,1)}% BF). The gap is likely being covered by lean tissue.` });
+    } else if(R.pctWk < -1.0){
+      R.warnings.push({ cls:'bad', html:`Losing ${round(-R.pctWk,2)}% of bodyweight per week. Above ~1%/wk, lean-mass loss rises sharply in trained lifters.` });
+    }
+    return R;
+  }
+
+  function mtChart(R){
+    const W=320, H=130, padL=6, padR=6, padT=12, padB=18;
+    const ys=R.pts.map(p=>p.y).concat(R.pts.map(p=>p.fit));
+    let mn=Math.min(...ys), mx=Math.max(...ys); if(mx-mn<1){ const c=(mx+mn)/2; mn=c-0.5; mx=c+0.5; }
+    const pad=(mx-mn)*0.08; mn-=pad; mx+=pad;
+    const span=Math.max(R.span,1);
+    const x=v=>padL+(v/span)*(W-padL-padR);
+    const y=v=>padT+(1-(v-mn)/(mx-mn))*(H-padT-padB);
+    const dots=R.pts.map(p=>`<circle cx="${x(p.x).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="2.4" fill="var(--muted)" opacity="0.85"/>`).join('');
+    const f0=R.icpt, f1=R.icpt+R.slope*R.span;
+    const line=`<line x1="${x(0).toFixed(1)}" y1="${y(f0).toFixed(1)}" x2="${x(span).toFixed(1)}" y2="${y(f1).toFixed(1)}" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/>`;
+    const lbl=`<text x="${padL}" y="${H-5}" fill="var(--muted)" font-size="9">${shortDate(R.first)}</text>`+
+              `<text x="${W-padR}" y="${H-5}" fill="var(--muted)" font-size="9" text-anchor="end">${shortDate(R.last)}</text>`+
+              `<text x="${W-padR}" y="${padT+2}" fill="var(--muted)" font-size="9" text-anchor="end">${round(mx,1)}</text>`+
+              `<text x="${W-padR}" y="${H-padB-3}" fill="var(--muted)" font-size="9" text-anchor="end">${round(mn,1)}</text>`;
+    return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${line}${dots}${lbl}</svg>`;
+  }
+
+  function renderMaint(){
+    const R=estimateMaint(), cfg=R.cfg;
+    [...document.querySelectorAll('#mtWinChips button')].forEach(b=>b.classList.toggle('active', parseInt(b.dataset.w)===cfg.win));
+    document.getElementById('mtStart').value=cfg.start||'';
+    document.getElementById('mtStart').max=todayKey();
+    document.getElementById('mtWinSub').textContent = R.startKey>'0000' ? `from ${shortDate(R.startKey)}` : 'all data';
+    const el=document.getElementById('mtMain');
+
+    if(R.status==='building'){
+      const pct=Math.min(100, Math.round(100*Math.min(R.nW/14, R.span/14, R.nI/13)));
+      el.innerHTML=`<div class="card">
+        <div class="card-title">Maintenance estimate <span class="conf-pill lo">Building</span></div>
+        <div style="font-size:14px;line-height:1.55;margin-bottom:6px">Not enough steady data in this window yet.</div>
+        <div class="mt-progress"><div style="width:${pct}%"></div></div>
+        <div class="mt-src">${R.nW} weigh-ins · ${R.span} day span · ${R.nI} intake days logged<br>
+        First estimate at ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days with ${MT_MIN.intake}+ intake days.
+        With typical water carryover, expect roughly ±250 kcal at 4 weeks and ±150 at 6 weeks of daily morning weigh-ins on steady intake.</div>
+        ${cfg.start?`<div class="mt-note">Start-date filter is on (${shortDate(cfg.start)}). Clear it below if you meant to include earlier data.</div>`:''}
+      </div>`;
+      return;
+    }
+
+    const rate=cfg.rate, targetLbWk=rate/100*R.trendW;
+    const recIn=R.tdee + targetLbWk*KCAL_PER_LB/7;
+    const cut=rate<0;
+    const proPerLb=cut?1.0:0.8;
+    const proTarget=Math.round(R.trendW*proPerLb/5)*5;
+    const recDeficit=-targetLbWk*KCAL_PER_LB/7;
+    const overCeil = cut && R.ceiling && recDeficit>R.ceiling;
+    const rateChips=MT_RATES.map(r=>`<button class="${r===rate?'active':''}" onclick="setMtRate(${r})">${r===0?'Maint':(r>0?'+':'−')+Math.abs(r)+'%'}</button>`).join('');
+    const balTxt = R.balance<0 ? `${kc(-R.balance)} deficit` : `${kc(R.balance)} surplus`;
+
+    el.innerHTML=`
+      <div class="card">
+        <div class="card-title">Maintenance estimate <span class="conf-pill ${R.grade}">${R.gradeTxt}</span></div>
+        <div class="mt-hero">
+          <div class="mt-big">${kc(R.tdee)}<span class="u"> kcal/day</span></div>
+          <div class="mt-pm">± ${kc(R.ci)} kcal</div>
+          <div class="mt-range">95% range ${kc(R.tdee-R.ci)} – ${kc(R.tdee+R.ci)}</div>
+        </div>
+        <div class="mt-src">${R.nW} weigh-ins and ${R.nI} logged intake days, ${shortDate(R.first)} – ${shortDate(R.last)} (${R.span} days).
+          Scatter around trend ±${round(R.residSD,1)} lb · water carryover r=${round(R.r1,2)}</div>
+      </div>
+
+      ${R.warnings.map(w=>`<div class="mt-alert ${w.cls}">${w.html}</div>`).join('')}
+
+      <div class="card">
+        <div class="card-title">Where you are</div>
+        <div class="mt-stats">
+          <div class="mt-stat"><span class="lbl">Avg intake</span><span class="val" style="color:var(--yellow)">${kc(R.avgIn)}</span><span class="sub2">kcal/day logged</span></div>
+          <div class="mt-stat"><span class="lbl">Energy balance</span><span class="val">${sgn(R.balance,0)}</span><span class="sub2">kcal/day · ${balTxt}</span></div>
+          <div class="mt-stat"><span class="lbl">Weight trend</span><span class="val" style="color:${R.lbWk<0?'var(--accent)':'var(--blue)'}">${sgn(R.lbWk,2)}</span><span class="sub2">lb/wk · ${sgn(R.pctWk,2)}% BW</span></div>
+          <div class="mt-stat"><span class="lbl">Trend weight</span><span class="val">${round(R.trendW,1)}</span><span class="sub2">lb on the fitted line</span></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-head"><span class="chart-name">Weigh-ins vs trend</span><span class="chart-delta ${R.lbWk<0?'up':'flat'}">${sgn(R.lbWk,2)} lb/wk</span></div>
+        ${mtChart(R)}
+      </div>
+
+      <div class="card">
+        <div class="card-title">Set your intake <span class="sub">target rate, % BW / week</span></div>
+        <div class="mt-chips">${rateChips}</div>
+        <div class="mt-rec">
+          <div class="mt-rec-row"><span>Eat</span><strong class="y">${kc(Math.round(recIn/10)*10)} kcal</strong></div>
+          <div class="mt-rec-row"><span>Target rate</span><strong>${sgn(targetLbWk,2)} lb/wk</strong></div>
+          <div class="mt-rec-row"><span>Change vs current avg</span><strong>${sgn(recIn-R.avgIn,0)} kcal</strong></div>
+          <div class="mt-rec-row"><span>Protein (${proPerLb.toFixed(1)} g/lb trend wt)</span><strong>${proTarget} g</strong></div>
+          ${R.avgPro!=null?`<div class="mt-rec-row"><span>Protein logged (avg)</span><strong>${Math.round(R.avgPro)} g</strong></div>`:''}
+          ${R.ceiling?`<div class="mt-rec-row"><span>Fat-release ceiling (${round(R.bf,1)}% BF)</span><strong style="color:${overCeil?'var(--red)':'var(--text)'}">${kc(R.ceiling)} kcal/day</strong></div>`:''}
+        </div>
+        <div class="mt-note">${cut
+          ? `Cut guide: ~0.7%/wk above 14% BF, ~0.5%/wk below it. ${overCeil?'<b style="color:var(--red)">This target asks for more deficit than your fat stores can supply: pick a slower rate.</b> ':''}The recommendation carries the same ± ${kc(R.ci)} as the estimate. Re-check in 2 weeks and adjust by 100–150 kcal if the trend misses.`
+          : rate===0 ? `Maintenance intake. Right after a cut, expect a 3–5 lb glycogen/water jump in week one: that's not fat. Re-estimate after 2 steady weeks.`
+          : `Lean-bulk guide: ~0.25–0.4%/wk. Faster mostly adds fat at your training age. Ignore the first week's glycogen jump when judging the rate.`}</div>
+      </div>`;
+  }
+
   // ═══════════════ History ═══════════════
   function buildHistory(){
     const data=allData();
@@ -965,6 +1314,12 @@
       'Below is my logged body data, workouts (Heavy Duty Hybrid V10), and daily nutrition.',
       'Please review trends, flag anything concerning, and suggest adjustments to training or nutrition.','',
     ];
+    const M=estimateMaint();
+    if(M.status==='ok'){
+      lines.push(`MAINTENANCE ESTIMATE: ${kc(M.tdee)} ± ${kc(M.ci)} kcal/day (95%, ${M.gradeTxt.toLowerCase()})`);
+      lines.push(`  From ${M.nW} weigh-ins / ${M.nI} intake days, ${M.first} → ${M.last}. Avg intake ${kc(M.avgIn)} kcal, trend ${sgn(M.lbWk,2)} lb/wk (${sgn(M.pctWk,2)}% BW), balance ${sgn(M.balance,0)} kcal/day, trend weight ${round(M.trendW,1)} lb.`);
+      lines.push('');
+    }
     keys.forEach(k=>{
       const d=data[k], b=d.body||{};
       lines.push(`▸ ${labelFor(k).toUpperCase()} (${k})`);
