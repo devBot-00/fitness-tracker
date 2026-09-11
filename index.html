@@ -288,6 +288,23 @@
     .status-msg.ok { color: var(--accent); } .status-msg.err { color: var(--red); }
     .warn { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.5; color: #fca5a5; margin-bottom: 14px; }
 
+    .waist-hint { font-size: 11px; color: var(--muted); margin-top: 3px; min-height: 14px; }
+    .waist-hint.due { color: var(--yellow); }
+    .chart-sub { font-size: 10px; color: var(--muted); font-weight: 600; margin-top: 1px; }
+
+    .mini-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: 0; text-transform: none; }
+    .ph-cur { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+    .ph-cur b { color: var(--text); }
+    .ph-pill { font-size: 12px; font-weight: 800; border: 1px solid; border-radius: 20px; padding: 3px 11px; }
+    .ph-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .ph-save { background: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; }
+    .ph-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .ph-row { display: flex; align-items: center; gap: 9px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; }
+    .ph-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ph-txt { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .ph-txt b { color: var(--text); }
+    .ph-row .del-btn { font-size: 13px; font-weight: 700; white-space: nowrap; }
+
     /* ── Maintenance ── */
     .mt-hero { text-align: center; padding: 6px 0 2px; }
     .mt-big { font-size: 40px; font-weight: 800; letter-spacing: -1px; line-height: 1; color: var(--yellow); }
@@ -369,10 +386,15 @@
     <div class="card">
       <div class="card-title">Body Data <span class="sub">from scale scan</span></div>
       <div class="grid-2">
-        <div class="input-group"><label>Weight (lbs)</label><input type="number" inputmode="decimal" id="f-weight" placeholder="0.0" oninput="saveBody()"></div>
-        <div class="input-group"><label>Body Fat %</label><input type="number" inputmode="decimal" id="f-bf" placeholder="0.0" oninput="saveBody()"></div>
-        <div class="input-group"><label>Muscle Mass (lbs)</label><input type="number" inputmode="decimal" id="f-muscle" placeholder="0.0" oninput="saveBody()"></div>
-        <div class="input-group"><label>Water %</label><input type="number" inputmode="decimal" id="f-water" placeholder="0.0" oninput="saveBody()"></div>
+        <div class="input-group"><label>Weight (lbs)</label><input type="number" inputmode="decimal" id="f-weight" data-f="weight" placeholder="0.0" oninput="saveBody('weight')"></div>
+        <div class="input-group"><label>Body Fat %</label><input type="number" inputmode="decimal" id="f-bf" data-f="bf" placeholder="0.0" oninput="saveBody('bf')"></div>
+        <div class="input-group"><label>Muscle Mass (lbs)</label><input type="number" inputmode="decimal" id="f-muscle" data-f="muscle" placeholder="0.0" oninput="saveBody('muscle')"></div>
+        <div class="input-group"><label>Water %</label><input type="number" inputmode="decimal" id="f-water" data-f="water" placeholder="0.0" oninput="saveBody('water')"></div>
+      </div>
+      <div class="input-group" style="margin-top:10px">
+        <label>Waist at navel (in) · weekly, morning, relaxed</label>
+        <input type="number" inputmode="decimal" step="0.25" id="f-waist" data-f="waist" placeholder="0.00" oninput="saveBody('waist')">
+        <div class="waist-hint" id="waistHint"></div>
       </div>
       <div class="save-flash" id="bodyFlash">Saved ✓</div>
     </div>
@@ -381,10 +403,10 @@
     <div class="card">
       <div class="card-title">Nutrition <span class="sub">daily totals</span></div>
       <div class="grid-2">
-        <div class="input-group"><label>Calories (kcal)</label><input type="number" inputmode="numeric" id="f-cals" placeholder="0" oninput="saveNutrition()"></div>
-        <div class="input-group"><label>Protein (g)</label><input type="number" inputmode="numeric" id="f-pro" placeholder="0" oninput="saveNutrition()"></div>
-        <div class="input-group"><label>Carbs (g)</label><input type="number" inputmode="numeric" id="f-carb" placeholder="0" oninput="saveNutrition()"></div>
-        <div class="input-group"><label>Fat (g)</label><input type="number" inputmode="numeric" id="f-fat" placeholder="0" oninput="saveNutrition()"></div>
+        <div class="input-group"><label>Calories (kcal)</label><input type="number" inputmode="numeric" id="f-cals" placeholder="0" oninput="saveNutrition('cals')"></div>
+        <div class="input-group"><label>Protein (g)</label><input type="number" inputmode="numeric" id="f-pro" placeholder="0" oninput="saveNutrition('pro')"></div>
+        <div class="input-group"><label>Carbs (g)</label><input type="number" inputmode="numeric" id="f-carb" placeholder="0" oninput="saveNutrition('carb')"></div>
+        <div class="input-group"><label>Fat (g)</label><input type="number" inputmode="numeric" id="f-fat" placeholder="0" oninput="saveNutrition('fat')"></div>
       </div>
       <div class="save-flash" id="nutFlash">Saved ✓</div>
     </div>
@@ -427,6 +449,7 @@
 <!-- ═══ MAINTENANCE VIEW ═══ -->
 <div class="view" id="view-maint">
   <div class="content">
+    <div id="mtPhase"></div>
     <div id="mtMain"></div>
 
     <div class="card">
@@ -454,6 +477,7 @@
         <p><b>Why a regression:</b> daily weight swings 1–3 lb on water, sodium, glycogen and gut contents, while real tissue change is ~0.1–0.2 lb/day. Fitting a line through every weigh-in uses all the data, so the slope firms up much faster than comparing two weekly averages.</p>
         <p><b>The ± range</b> is a 95% interval from the scatter of your weigh-ins around the line, widened for day-to-day water carryover (a salty meal or a hard leg day moves weight for 2–3 days, so neighbouring weigh-ins aren't independent). It shrinks roughly with days<sup>1.5</sup>. With typical carryover that's about ±250 at 4 steady weeks and ±150 at 6; consistent food, sodium and weigh-in timing tighten it. The band was calibrated by simulation to contain the true value ~95% of the time.</p>
         <p><b>What it can't see:</b> logging errors. If intake is under-logged by 200 kcal, maintenance reads 200 low. It also can't separate fat from water, so any intake change resets glycogen/water for ~10 days. Use the start-date filter to skip that.</p>
+        <p><b>Phases:</b> when you start a cut, maintenance phase or bulk, the first 10 days are skipped automatically (glycogen and water are still shifting, which would bias the slope by ~200 kcal). Until the new phase has enough data, the estimate from the end of the previous phase carries forward.</p>
         <p><b>Intake timing:</b> a morning weigh-in reflects food through the night before, so intake is counted from the first weigh-in day up to (not including) the last one, each day weighted exactly as the regression weights that day's weight change.</p>
       </details>
     </div>
@@ -593,6 +617,7 @@
     const dt=keyToDate(current); dt.setDate(dt.getDate()+delta);
     const nk=[dt.getFullYear(),pad(dt.getMonth()+1),pad(dt.getDate())].join('-');
     if(nk>todayKey()) return;
+    flushBody(); flushNotes(); flushNutrition();
     current=nk; loadDay();
   }
 
@@ -602,7 +627,13 @@
   function saveAll(d){ localStorage.setItem(LS_KEY, JSON.stringify(d)); }
   function blankDay(){ return { body:{}, food:[], notes:'', workout:null }; }
   function dayData(k){ return allData()[k] || blankDay(); }
-  function setDay(k,d){ const a=allData(); d._ts=Date.now(); a[k]=d; saveAll(a); scheduleSync(); }
+  // sec = which part of the day changed; each section carries its own timestamp so two devices
+  // editing different parts of the same day (weigh-in on phone, food on laptop) both survive a merge.
+  function setDay(k,d,sec){
+    const a=allData(); const now=Date.now();
+    d._ts=now; if(sec){ d._s=Object.assign({}, d._s||{}); d._s[sec]=now; }
+    a[k]=d; saveAll(a); scheduleSync();
+  }
 
   // ═══════════════ JSONBin sync ═══════════════
   const API_BASE='https://api.jsonbin.io/v3/b/';
@@ -630,45 +661,86 @@
     if(!res.ok) throw new Error('HTTP '+res.status);
   }
 
-  // Merge two day-maps, newest per-day wins (by _ts).
-  function mergeData(a,b){
-    const out={}; const keys=new Set([...Object.keys(a||{}),...Object.keys(b||{})]);
-    keys.forEach(k=>{
-      const da=(a||{})[k], db=(b||{})[k];
-      if(da&&db) out[k]=((db._ts||0)>(da._ts||0))?db:da;
-      else out[k]=da||db;
+  // ── Merge ──
+  // Day-level fields grouped into independently-timestamped sections. Legacy days (no _s) fall
+  // back to the day's _ts, which reproduces the old newest-day-wins behaviour for them.
+  const SECTIONS = { body:['body'], nutrition:['nutrition','food'], notes:['notes'], workout:['workout'], phase:['phase'] };
+  function secTs(d,sec){ return d._s ? (d._s[sec]||0) : (d._ts||0); }
+  function mergeDay(a,b){
+    if(!a) return b; if(!b) return a;
+    const newer=(b._ts||0)>(a._ts||0)?b:a;
+    const out={ _ts:Math.max(a._ts||0,b._ts||0), _s:{} };
+    // carry any unknown fields from the newer copy
+    Object.keys(newer).forEach(f=>{ if(f!=='_ts'&&f!=='_s') out[f]=newer[f]; });
+    Object.entries(SECTIONS).forEach(([sec,fields])=>{
+      const ta=secTs(a,sec), tb=secTs(b,sec);
+      const src = tb>ta ? b : (ta>tb ? a : newer);        // tie → newer day
+      fields.forEach(f=>{ if(f in src) out[f]=src[f]; else delete out[f]; });
+      const t=Math.max(ta,tb); if(t) out._s[sec]=t;
     });
     return out;
   }
+  function mergeData(a,b){
+    const out={}; a=a||{}; b=b||{};
+    new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{ out[k]=mergeDay(a[k],b[k]); });
+    return out;
+  }
+  // Order-independent serialisation for change detection.
+  function stableStr(v){
+    if(v===null||typeof v!=='object') return JSON.stringify(v);
+    if(Array.isArray(v)) return '['+v.map(stableStr).join(',')+']';
+    return '{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stableStr(v[k])).join(',')+'}';
+  }
 
-  let syncTimer, syncing=false;
+  // ── Sync: always pull → merge → push, one at a time ──
+  // A blind PUT of local data would overwrite days another device saved since this page last pulled.
+  let syncTimer, syncing=false, syncAgain=false;
   function scheduleSync(){
     if(!getKey()){ setSync('', 'Local'); return; }
     clearTimeout(syncTimer);
-    syncTimer=setTimeout(pushSync, 1200);
+    syncTimer=setTimeout(syncNow, 1200);
   }
-  async function pushSync(){
-    if(!getKey()) return;
-    setSync('busy','Saving…');
-    try{ await pushRemote(allData()); setSync('ok','Synced'); }
-    catch(e){ setSync('err','Sync error'); }
-  }
-  async function initialSync(){
+  async function syncNow(){
     if(!getKey()){ setSync('','Local only'); return; }
-    setSync('busy','Syncing…');
+    if(syncing){ syncAgain=true; return; }
+    syncing=true; setSync('busy','Syncing…');
     try{
-      const remote=await pullRemote();
-      if(remote && typeof remote==='object'){
-        const merged=mergeData(allData(), remote);
-        saveAll(merged);
-        // Push back if local had anything newer than remote.
-        loadDay();
-        if(document.getElementById('view-progress').classList.contains('active')) renderProgress();
-        if(document.getElementById('view-maint').classList.contains('active')) renderMaint();
-      }
+      let remote=await pullRemote();
+      if(!remote || typeof remote!=='object' || Array.isArray(remote)) remote={};
+      // Re-read local *after* the await so edits made while the pull was in flight are kept.
+      const local=allData();
+      const merged=mergeData(local, remote);
+      const m=stableStr(merged);
+      const localChanged = m!==stableStr(local);
+      if(localChanged) saveAll(merged);
+      if(m!==stableStr(remote)) await pushRemote(merged);
+      if(localChanged) refreshAfterSync();
       setSync('ok','Synced');
     }catch(e){ setSync('err','Sync error'); }
+    finally{
+      syncing=false;
+      if(syncAgain){ syncAgain=false; syncNow(); }
+    }
   }
+  const initialSync=syncNow, pushSync=syncNow;   // names used elsewhere
+
+  // Re-render after remote changes arrived — but never reload the form under someone typing.
+  function editPending(){
+    const ae=document.activeElement;
+    const typing = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && document.getElementById('view-log').contains(ae);
+    return typing || bodyTimer || notesTimer || nutTimer;
+  }
+  function refreshAfterSync(){
+    const active=v=>document.getElementById('view-'+v).classList.contains('active');
+    if(active('log') && !editPending()) loadDay();
+    if(active('progress')) renderProgress();
+    if(active('maint')) renderMaint();
+    if(active('history')) buildHistory();
+    if(active('export')) buildExport();
+  }
+  // Pick up other devices' changes when returning to the app or coming back online.
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') syncNow(); });
+  window.addEventListener('online', ()=>syncNow());
 
   // ═══════════════ Load / render day ═══════════════
   function loadDay(){
@@ -680,6 +752,8 @@
     document.getElementById('f-bf').value=b.bf ?? '';
     document.getElementById('f-muscle').value=b.muscle ?? '';
     document.getElementById('f-water').value=b.water ?? '';
+    document.getElementById('f-waist').value=b.waist ?? '';
+    renderWaistHint();
     document.getElementById('f-notes').value=d.notes||'';
     const hasNut = d.nutrition || (d.food && d.food.length);
     const t = dayTotals(d);
@@ -697,25 +771,41 @@
     return { cals:f.reduce((s,x)=>s+(x.cals||0),0), pro:f.reduce((s,x)=>s+(x.pro||0),0), carb:f.reduce((s,x)=>s+(x.carb||0),0), fat:f.reduce((s,x)=>s+(x.fat||0),0) };
   }
 
-  // ═══════════════ Body / notes ═══════════════
-  let bodyTimer;
-  function saveBody(){
-    clearTimeout(bodyTimer);
-    bodyTimer=setTimeout(()=>{
-      const d=dayData(current);
-      d.body={
-        weight:parseFloat(document.getElementById('f-weight').value)||null,
-        bf:parseFloat(document.getElementById('f-bf').value)||null,
-        muscle:parseFloat(document.getElementById('f-muscle').value)||null,
-        water:parseFloat(document.getElementById('f-water').value)||null,
-      };
-      setDay(current,d); flash('bodyFlash');
-    },600);
+  // Most recent waist entry before the day being viewed; nudges when a week has passed.
+  function renderWaistHint(){
+    const el=document.getElementById('waistHint'); const data=allData();
+    const prev=Object.keys(data).filter(k=>k<current && data[k].body && data[k].body.waist>0).sort().pop();
+    if(!prev){ el.textContent='Log once a week, same conditions each time.'; el.className='waist-hint'; return; }
+    const ago=Math.round((keyToDate(current)-keyToDate(prev))/86400000);
+    el.textContent=`Last: ${data[prev].body.waist} in · ${labelFor(prev)} (${ago} day${ago===1?'':'s'} before)`+(ago>=7?' · due':'');
+    el.className='waist-hint'+(ago>=7?' due':'');
   }
-  let notesTimer;
+
+  // ═══════════════ Body / notes ═══════════════
+  // Saves write only the fields actually edited, to the day they were edited on — so a stale
+  // on-screen value (e.g. a weigh-in synced from another device) can never overwrite stored data.
+  let bodyTimer, bodyDirty=new Set(), bodyKey=null;
+  function saveBody(f){
+    if(bodyKey && bodyKey!==current) flushBody();
+    bodyKey=current; if(f) bodyDirty.add(f);
+    clearTimeout(bodyTimer); bodyTimer=setTimeout(flushBody,600);
+  }
+  function flushBody(){
+    if(!bodyTimer && !bodyDirty.size) return;
+    clearTimeout(bodyTimer); bodyTimer=null;
+    const k=bodyKey||current, d=dayData(k); d.body=Object.assign({}, d.body||{});
+    if(k===current) bodyDirty.forEach(f=>{ d.body[f]=parseFloat(document.getElementById('f-'+f).value)||null; });
+    bodyDirty.clear(); bodyKey=null;
+    setDay(k,d,'body'); flash('bodyFlash');
+  }
+  let notesTimer, notesKey=null;
   function saveNotes(){
-    clearTimeout(notesTimer);
-    notesTimer=setTimeout(()=>{ const d=dayData(current); d.notes=document.getElementById('f-notes').value; setDay(current,d); flash('notesFlash'); },600);
+    notesKey=current; clearTimeout(notesTimer); notesTimer=setTimeout(flushNotes,600);
+  }
+  function flushNotes(){
+    if(!notesTimer) return; clearTimeout(notesTimer); notesTimer=null;
+    const k=notesKey||current, d=dayData(k); d.notes=document.getElementById('f-notes').value; notesKey=null;
+    setDay(k,d,'notes'); flash('notesFlash');
   }
   function flash(id){ const el=document.getElementById(id); el.classList.add('on'); setTimeout(()=>el.classList.remove('on'),1800); }
 
@@ -729,7 +819,7 @@
   function setSession(sess){
     const d=ensureWorkout(dayData(current));
     d.workout.session=sess;
-    setDay(current,d); renderWorkout(dayData(current));
+    setDay(current,d,'workout'); renderWorkout(dayData(current));
   }
 
   function renderWorkout(d){
@@ -809,28 +899,28 @@
     const r=parseInt(document.getElementById('r-'+id).value);
     const prev=d.workout.lifts[id]||{};
     d.workout.lifts[id]={ weight:isNaN(w)?null:w, reps:isNaN(r)?null:r, done:prev.done||false };
-    setDay(current,d);
+    setDay(current,d,'workout');
   }
   function toggleDone(id){
     const d=ensureWorkout(dayData(current));
     const prev=d.workout.lifts[id]||{};
     d.workout.lifts[id]={ weight:prev.weight??null, reps:prev.reps??null, done:!prev.done };
-    setDay(current,d); renderWorkout(dayData(current));
+    setDay(current,d,'workout'); renderWorkout(dayData(current));
   }
   function addExtra(){
     const name=document.getElementById('ex-name').value.trim(); if(!name) return;
     const d=ensureWorkout(dayData(current));
     d.workout.extra.push({ name, weight:parseFloat(document.getElementById('ex-w').value)||null, reps:parseInt(document.getElementById('ex-r').value)||null });
-    setDay(current,d); renderWorkout(dayData(current));
+    setDay(current,d,'workout'); renderWorkout(dayData(current));
   }
   function saveExtra(i){
     const d=ensureWorkout(dayData(current));
     if(!d.workout.extra[i]) return;
     d.workout.extra[i].weight=parseFloat(document.getElementById('xw-'+i).value)||null;
     d.workout.extra[i].reps=parseInt(document.getElementById('xr-'+i).value)||null;
-    setDay(current,d);
+    setDay(current,d,'workout');
   }
-  function delExtra(i){ const d=ensureWorkout(dayData(current)); d.workout.extra.splice(i,1); setDay(current,d); renderWorkout(dayData(current)); }
+  function delExtra(i){ const d=ensureWorkout(dayData(current)); d.workout.extra.splice(i,1); setDay(current,d,'workout'); renderWorkout(dayData(current)); }
 
   // Find the most recent logged value for an exercise before beforeKey.
   function lastLift(id, beforeKey){
@@ -844,20 +934,21 @@
   }
 
   // ═══════════════ Nutrition (daily totals) ═══════════════
-  let nutTimer;
-  function saveNutrition(){
-    clearTimeout(nutTimer);
-    nutTimer=setTimeout(()=>{
-      const d=dayData(current);
-      d.nutrition={
-        cals:parseInt(document.getElementById('f-cals').value)||null,
-        pro:parseInt(document.getElementById('f-pro').value)||null,
-        carb:parseInt(document.getElementById('f-carb').value)||null,
-        fat:parseInt(document.getElementById('f-fat').value)||null,
-      };
-      if('food' in d) delete d.food; // supersede legacy per-item food list
-      setDay(current,d); flash('nutFlash');
-    },600);
+  let nutTimer, nutDirty=new Set(), nutKey=null;
+  function saveNutrition(f){
+    nutKey=current; if(f) nutDirty.add(f);
+    clearTimeout(nutTimer); nutTimer=setTimeout(flushNutrition,600);
+  }
+  function flushNutrition(){
+    if(!nutTimer) return; clearTimeout(nutTimer); nutTimer=null;
+    const k=nutKey||current, d=dayData(k);
+    // Seed from existing totals (incl. legacy per-item food list) so untouched fields keep their values.
+    const t=dayTotals(d);
+    const n=Object.assign({ cals:t.cals||null, pro:t.pro||null, carb:t.carb||null, fat:t.fat||null }, d.nutrition||{});
+    nutDirty.forEach(f=>{ n[f]=parseInt(document.getElementById('f-'+f).value)||null; });
+    d.nutrition=n; nutDirty.clear(); nutKey=null;
+    if('food' in d) delete d.food; // supersede legacy per-item food list
+    setDay(k,d,'nutrition'); flash('nutFlash');
   }
 
   function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -932,42 +1023,68 @@
       unit: exMetric==='e1rm'?'lbs 1RM':'lbs', color:'var(--purple)', decimals:0
     });
 
-    // Body metric charts
+    // Body metric charts. smooth → trailing 7-calendar-day average drawn over the raw points;
+    // good → which direction reads as progress (1 up, -1 down, 0 neutral).
+    const wGood = (()=>{ const p=currentPhase(); return !p ? 0 : (p.type==='cut' ? -1 : (p.type==='bulk' ? 1 : 0)); })();
     const metrics=[
-      { key:'weight', label:'Weight',    unit:'lbs', color:'var(--accent)', dec:1, get:d=>d.body&&d.body.weight },
-      { key:'bf',     label:'Body Fat',  unit:'%',   color:'var(--red)',    dec:1, get:d=>d.body&&d.body.bf },
-      { key:'muscle', label:'Muscle',    unit:'lbs', color:'var(--blue)',   dec:1, get:d=>d.body&&d.body.muscle },
-      { key:'cals',   label:'Calories',  unit:'kcal',color:'var(--yellow)', dec:0, get:d=>{ const t=dayTotals(d).cals; return t||null; } },
+      { key:'weight', label:'Weight',    unit:'lbs', color:'var(--accent)', dec:1, smooth:true, good:wGood, get:d=>d.body&&d.body.weight },
+      { key:'bf',     label:'Body Fat',  unit:'%',   color:'var(--red)',    dec:1, smooth:true, good:-1, get:d=>d.body&&d.body.bf,
+        sub:'Scale BF% moves with hydration: read the 7-day line, not single days.' },
+      { key:'waist',  label:'Waist',     unit:'in',  color:'var(--purple)', dec:2, good:-1, get:d=>d.body&&d.body.waist },
+      { key:'muscle', label:'Muscle',    unit:'lbs', color:'var(--blue)',   dec:1, smooth:true, good:1, get:d=>d.body&&d.body.muscle },
+      { key:'cals',   label:'Calories',  unit:'kcal',color:'var(--yellow)', dec:0, smooth:true, good:0, get:d=>{ const t=dayTotals(d).cals; return t||null; } },
       { key:'pro',    label:'Protein',   unit:'g',   color:'var(--accent)', dec:0, get:d=>{ const t=dayTotals(d).pro; return t||null; } },
       { key:'carb',   label:'Carbs',     unit:'g',   color:'var(--blue)',   dec:0, get:d=>{ const t=dayTotals(d).carb; return t||null; } },
       { key:'fat',    label:'Fat',       unit:'g',   color:'var(--red)',    dec:0, get:d=>{ const t=dayTotals(d).fat; return t||null; } },
     ];
+    const inRange=new Set(keys);
+    const allKeys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
     let out='';
     metrics.forEach(m=>{
-      const s=[]; keys.forEach(k=>{ const v=m.get(data[k]); if(v!=null && v!=='' && !isNaN(v)) s.push({key:k, value:+v}); });
-      out+=`<div class="chart-card"><div class="chart-name" style="margin-bottom:2px">${m.label}</div>${chartBlock(s,{unit:m.unit,color:m.color,decimals:m.dec})}</div>`;
+      // Build over all data so the first in-range points still get a full 7-day lookback.
+      const full=[]; allKeys.forEach(k=>{ const v=m.get(data[k]); if(v!=null && v!=='' && !isNaN(v) && +v>0) full.push({key:k, value:+v}); });
+      if(m.smooth) trailingAvg(full, 7);
+      const s=full.filter(p=>inRange.has(p.key));
+      out+=`<div class="chart-card"><div class="chart-name" style="margin-bottom:2px">${m.label}</div>`+
+           (m.sub&&s.length?`<div class="chart-sub">${m.sub}</div>`:'')+
+           `${chartBlock(s,{unit:m.unit,color:m.color,decimals:m.dec,smooth:m.smooth,good:m.good})}</div>`;
     });
     document.getElementById('bodyCharts').innerHTML=out;
   }
 
+  // Adds p.avg = mean of values dated within the trailing `days` calendar days (inclusive).
+  function trailingAvg(series, days){
+    let lo=0, sum=0;
+    series.forEach((p,i)=>{
+      sum+=p.value;
+      while(Math.round((keyToDate(p.key)-keyToDate(series[lo].key))/86400000) >= days){ sum-=series[lo].value; lo++; }
+      p.avg=sum/(i-lo+1); p.avgN=i-lo+1;
+    });
+    return series;
+  }
+
   // Returns HTML: header (current + delta) + SVG line chart, or empty note.
+  // With opts.smooth the header and delta use the 7-day average, not the noisy raw endpoints.
   function chartBlock(series, opts){
     opts=opts||{}; const color=opts.color||'var(--accent)'; const unit=opts.unit||''; const dec=opts.decimals??0;
     if(!series.length) return `<div class="chart-empty">No data in range</div>`;
-    const vals=series.map(p=>p.value);
+    const sm=!!opts.smooth && series.length>1;
+    const vals=series.map(p=>sm?p.avg:p.value);
     const cur=vals[vals.length-1], first=vals[0];
     const diff=cur-first;
-    const dcls=diff>0?'up':(diff<0?'down':'flat');
+    const good=opts.good??1;
+    const eps=Math.pow(10,-dec)/2;
+    const dcls=Math.abs(diff)<eps||good===0 ? 'flat' : ((diff>0)===(good>0) ? 'up' : 'down');
     const dtxt=(diff>0?'+':'')+ (Math.round(diff*Math.pow(10,dec))/Math.pow(10,dec));
-    const head=`<div class="chart-head"><span class="chart-cur">${round(cur,dec)}<span class="u"> ${unit}</span></span>`+
-               (series.length>1?`<span class="chart-delta ${dcls}">${dtxt} ${unit} over ${series.length} pts</span>`:'')+`</div>`;
-    return head + svgLine(series, color, dec);
+    const head=`<div class="chart-head"><span class="chart-cur">${round(cur,dec)}<span class="u"> ${unit}${sm?' · 7d avg':''}</span></span>`+
+               (series.length>1?`<span class="chart-delta ${dcls}">${dtxt} ${unit} ${sm?'(avg) ':''}over ${series.length} pts</span>`:'')+`</div>`;
+    return head + svgLine(series, color, dec, sm);
   }
   function round(n,d){ const f=Math.pow(10,d); return Math.round(n*f)/f; }
 
-  function svgLine(series, color, dec){
+  function svgLine(series, color, dec, smooth){
     const W=320, H=110, padL=6, padR=6, padT=10, padB=18;
-    const vals=series.map(p=>p.value);
+    const vals=series.map(p=>p.value).concat(smooth?series.map(p=>p.avg):[]);
     let mn=Math.min(...vals), mx=Math.max(...vals);
     if(mn===mx){ mn-=1; mx+=1; }
     const rng=mx-mn;
@@ -975,14 +1092,18 @@
     const x=i=> n===1 ? W/2 : padL + (i/(n-1))*(W-padL-padR);
     const y=v=> padT + (1-(v-mn)/rng)*(H-padT-padB);
 
-    let pts=series.map((p,i)=>[x(i),y(p.value)]);
-    let dLine=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-    let dArea=dLine+` L ${pts[pts.length-1][0].toFixed(1)} ${H-padB} L ${pts[0][0].toFixed(1)} ${H-padB} Z`;
+    const path=ps=>ps.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const pts=series.map((p,i)=>[x(i),y(p.value)]);
+    const apts=smooth ? series.map((p,i)=>[x(i),y(p.avg)]) : null;
+    const main=apts||pts;                                   // the emphasised line (avg when smoothing)
+    const dLine=path(main);
+    const dArea=dLine+` L ${main[main.length-1][0].toFixed(1)} ${H-padB} L ${main[0][0].toFixed(1)} ${H-padB} Z`;
 
     const gid='g'+Math.random().toString(36).slice(2,8);
-    let dots = n<=40 ? pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="${color}"/>`).join('') : '';
+    let dots = n<=40 ? pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${smooth?2:2.6}" fill="${color}"${smooth?' opacity="0.45"':''}/>`).join('') : '';
+    const raw = smooth && n>1 ? `<path d="${path(pts)}" fill="none" stroke="${color}" stroke-width="1" stroke-opacity="0.3" stroke-linejoin="round"/>` : '';
     // last point emphasized
-    const lp=pts[pts.length-1];
+    const lp=main[main.length-1];
     dots += `<circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3.6" fill="${color}" stroke="var(--surface)" stroke-width="1.5"/>`;
 
     const xa=`<text x="${padL}" y="${H-5}" fill="var(--muted)" font-size="9">${series[0].key.slice(5)}</text>`+
@@ -997,7 +1118,7 @@
     const line = n>1 ? `<path d="${dLine}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>` : '';
 
     return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      ${areaFill}${line}${dots}${xa}${ya}</svg>`;
+      ${areaFill}${raw}${line}${dots}${xa}${ya}</svg>`;
   }
 
   // ═══════════════ Maintenance estimator ═══════════════
@@ -1017,7 +1138,7 @@
   }
   function saveMtCfg(c){ try{ localStorage.setItem(MT_CFG_KEY, JSON.stringify(c)); }catch(e){} }
   function setMtStart(v){ const c=mtCfg(); c.start=v||''; saveMtCfg(c); renderMaint(); }
-  function setMtRate(r){ const c=mtCfg(); c.rate=r; saveMtCfg(c); renderMaint(); }
+  function setMtRate(r){ if(currentPhase()){ setPhaseRate(r); } else { const c=mtCfg(); c.rate=r; saveMtCfg(c); } renderMaint(); }
   document.getElementById('mtWinChips').addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
     const c=mtCfg(); c.win=parseInt(b.dataset.w); saveMtCfg(c); renderMaint();
@@ -1083,13 +1204,20 @@
     return best;
   }
 
-  function estimateMaint(){
-    const data=allData(), cfg=mtCfg(), today=todayKey();
-    let startKey = cfg.win>0 ? addDaysKey(today, -(cfg.win-1)) : '0000-00-00';
-    if(cfg.start && cfg.start>startKey) startKey=cfg.start;
-    const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k) && k>=startKey && k<=today).sort();
+  // opts.end: estimate as of this day (default today). opts.carried: estimating a *previous*
+  // phase, so ignore this device's manual start date and skip "now"-type warnings.
+  function estimateMaint(opts){
+    opts=opts||{};
+    const data=allData(), cfg=mtCfg(), today=todayKey(), end=opts.end||today;
+    let startKey = cfg.win>0 ? addDaysKey(end, -(cfg.win-1)) : '0000-00-00';
+    let floorBy = cfg.win>0 ? 'window' : 'all';
+    if(!opts.carried && cfg.start && cfg.start>startKey){ startKey=cfg.start; floorBy='manual'; }
+    // A phase change moves intake; skip the settle period while glycogen/water re-equilibrate.
+    const ph=phaseAt(end), settleKey = ph ? addDaysKey(ph.start, PHASE_SETTLE_DAYS) : null;
+    if(settleKey && settleKey>startKey){ startKey=settleKey; floorBy='phase'; }
+    const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k) && k>=startKey && k<=end).sort();
     const weighKeys=keys.filter(k=>{ const w=data[k].body&&data[k].body.weight; return w>0; });
-    const R={ cfg, startKey, today, nW:weighKeys.length, warnings:[] };
+    const R={ cfg, startKey, floorBy, phase:ph, settleKey, end, today, carried:!!opts.carried, nW:weighKeys.length, warnings:[] };
     R.first=weighKeys[0]; R.last=weighKeys[weighKeys.length-1];
     R.span = weighKeys.length>1 ? dayDiff(R.first,R.last) : 0;
 
@@ -1148,7 +1276,7 @@
 
     // ── Warnings ──
     const step=intakeStep(intake);
-    if(step && Math.abs(step.diff)>=250){
+    if(!opts.carried && step && Math.abs(step.diff)>=250){
       const sugg=addDaysKey(step.at,10);
       R.warnings.push({ cls:'warn2', html:`Intake shifted <b>${sgn(step.diff,0)} kcal/day</b> around <b>${shortDate(step.at)}</b> (${kc(step.before)} → ${kc(step.after)}). The glycogen and water shift from that change biases the slope for ~10 days.`+
         (sugg<=today && dayDiff(sugg,today)>=MT_MIN.span ? ` <a href="#" onclick="setMtStart('${sugg}');return false" style="color:inherit;font-weight:700">Ignore data before ${shortDate(sugg)} →</a>` : ` Once you have ~2 steady weeks past ${shortDate(sugg)}, set the start date there.`) });
@@ -1157,6 +1285,7 @@
       R.warnings.push({ cls:'warn2', html:`Calories logged on <b>${R.nI} of ${R.span}</b> days. Missing days are assumed to match your logged average. If they were higher (weekends, meals out), maintenance reads high.` });
     }
     const gap=dayDiff(R.last,today);
+    if(opts.carried) return R;
     if(gap>3) R.warnings.push({ cls:'info', html:`Last weigh-in was ${gap} days ago (${shortDate(R.last)}). The estimate covers ${shortDate(R.first)}–${shortDate(R.last)}.` });
     if(R.ceiling && -R.balance>R.ceiling){
       R.warnings.push({ cls:'bad', html:`Current deficit (~${kc(-R.balance)} kcal/day) is above the ~${kc(R.ceiling)} kcal/day your fat stores can release (≈${FAT_KCAL_PER_LB_DAY} kcal per lb of fat per day, at ${round(R.bf,1)}% BF). The gap is likely being covered by lean tissue.` });
@@ -1184,29 +1313,138 @@
     return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${line}${dots}${lbl}</svg>`;
   }
 
+  // ═══════════════ Phases (cut / maintain / bulk) ═══════════════
+  // Stored as a marker on the phase's start day (d.phase) so it syncs and merges like any other
+  // day section. The phase in effect on a date = the latest marker on or before it.
+  const PHASE_TYPES = {
+    cut:   { label:'Cut',       rate:-0.7, color:'var(--red)'    },
+    maint: { label:'Maintain',  rate:0,    color:'var(--yellow)' },
+    bulk:  { label:'Lean bulk', rate:0.25, color:'var(--blue)'   },
+  };
+  const PHASE_SETTLE_DAYS = 10;
+  let phaseFormOpen=false, phaseFormType='cut';
+
+  function phaseList(){
+    const d=allData();
+    return Object.keys(d).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k) && d[k].phase && PHASE_TYPES[d[k].phase.type]).sort()
+      .map(k=>({ start:k, type:d[k].phase.type, rate:(typeof d[k].phase.rate==='number')?d[k].phase.rate:PHASE_TYPES[d[k].phase.type].rate }));
+  }
+  function phaseAt(k){ let p=null; phaseList().forEach(x=>{ if(x.start<=k) p=x; }); return p; }
+  function currentPhase(){ return phaseAt(todayKey()); }
+  function prevPhaseOf(p){ const L=phaseList(); const i=L.findIndex(x=>x.start===p.start); return i>0?L[i-1]:null; }
+  function phaseEnd(p){ const L=phaseList(); const i=L.findIndex(x=>x.start===p.start); return L[i+1] ? addDaysKey(L[i+1].start,-1) : todayKey(); }
+
+  function savePhase(){
+    const start=document.getElementById('phStart').value || todayKey();
+    if(start>todayKey()) return;
+    const d=dayData(start); d.phase={ type:phaseFormType, rate:PHASE_TYPES[phaseFormType].rate };
+    setDay(start,d,'phase'); phaseFormOpen=false; renderMaint();
+  }
+  function setPhaseRate(r){
+    const p=currentPhase(); if(!p) return;
+    const d=dayData(p.start); d.phase=Object.assign({}, d.phase, { rate:r }); setDay(p.start,d,'phase');
+  }
+  // Two-tap delete (no browser dialogs): first tap arms, second deletes.
+  function delPhase(btn, start){
+    if(!btn.dataset.armed){ btn.dataset.armed='1'; btn.textContent='Delete?'; setTimeout(()=>{ if(btn.isConnected){ delete btn.dataset.armed; btn.textContent='×'; } },3000); return; }
+    const d=dayData(start); d.phase=null; setDay(start,d,'phase'); renderMaint();
+  }
+  function togglePhaseForm(open){ phaseFormOpen = open ?? !phaseFormOpen; renderMaint(); }
+  function pickPhaseType(t){ phaseFormType=t; document.querySelectorAll('#phTypeChips button').forEach(b=>b.classList.toggle('active', b.dataset.t===t)); }
+
+  function fmtDur(days){ const w=Math.floor(days/7), d=days%7; return w ? `${w} wk${d?` ${d} d`:''}` : `${d} d`; }
+  // Avg of weigh-ins in the first and last 7 days of a phase.
+  function phaseWeights(p){
+    const data=allData(), end=phaseEnd(p);
+    const w=Object.keys(data).filter(k=>k>=p.start && k<=end && data[k].body && data[k].body.weight>0).sort().map(k=>({k, v:+data[k].body.weight}));
+    if(!w.length) return null;
+    const avg=a=>a.reduce((s,x)=>s+x.v,0)/a.length;
+    const head=w.filter(x=>dayDiff(p.start,x.k)<7), tail=w.filter(x=>dayDiff(x.k,end)<7);
+    if(!head.length||!tail.length) return null;
+    return { from:avg(head), to:avg(tail) };
+  }
+
+  function renderPhaseCard(){
+    const el=document.getElementById('mtPhase');
+    const L=phaseList(), cur=currentPhase(), today=todayKey();
+    if(!L.length) phaseFormOpen = true;
+    const pill=(t)=>`<span class="ph-pill" style="color:${PHASE_TYPES[t].color};border-color:${PHASE_TYPES[t].color}">${PHASE_TYPES[t].label}</span>`;
+    let html=`<div class="card"><div class="card-title">Phase ${L.length?`<button class="mini-btn" onclick="togglePhaseForm()">${phaseFormOpen?'Cancel':'Change phase'}</button>`:''}</div>`;
+    if(cur){
+      const days=dayDiff(cur.start,today), settling=days<PHASE_SETTLE_DAYS;
+      html+=`<div class="ph-cur">${pill(cur.type)}<span>since <b>${shortDate(cur.start)}</b> · ${fmtDur(days+1)} · target <b>${cur.rate>0?'+':(cur.rate<0?'−':'')}${Math.abs(cur.rate)}%/wk</b></span></div>`;
+      if(settling) html+=`<div class="mt-note" style="margin-top:8px">Settling: estimates skip ${shortDate(cur.start)}–${shortDate(addDaysKey(cur.start,PHASE_SETTLE_DAYS-1))} while glycogen and water re-equilibrate.</div>`;
+    } else if(L.length){
+      html+=`<div class="mt-note" style="margin-top:0">Your first phase starts ${shortDate(L[0].start)}.</div>`;
+    }
+    if(phaseFormOpen){
+      html+=`<div class="ph-form">
+        ${L.length?'':'<div style="font-size:13px;line-height:1.5;margin-bottom:10px">Set your current phase. The tracker then handles the switch between cut and bulk for you.</div>'}
+        <div class="mt-chips" id="phTypeChips">${Object.entries(PHASE_TYPES).map(([t,v])=>`<button data-t="${t}" class="${t===phaseFormType?'active':''}" onclick="pickPhaseType('${t}')">${v.label}</button>`).join('')}</div>
+        <div class="input-group"><label>Start date: the day your intake changed</label>
+          <div class="mt-date-row"><input type="date" id="phStart" value="${today}" max="${today}"><button class="ph-save" onclick="savePhase()">Save</button></div></div>
+        <div class="mt-note">The first ${PHASE_SETTLE_DAYS} days after a change are left out of the estimate (water and glycogen shift). Until the new phase has enough data, your last phase's estimate carries forward.</div>
+      </div>`;
+    }
+    if(L.length){
+      html+=`<div class="ph-list">`+L.slice().reverse().map(p=>{
+        const end=phaseEnd(p), w=phaseWeights(p), ongoing=(p===L[L.length-1]) && p.start<=today;
+        const wtxt = w ? ` · ${round(w.from,1)} → ${round(w.to,1)} lb (${sgn(w.to-w.from,1)})` : '';
+        return `<div class="ph-row"><span class="ph-dot" style="background:${PHASE_TYPES[p.type].color}"></span>
+          <span class="ph-txt"><b>${PHASE_TYPES[p.type].label}</b> · ${shortDate(p.start)} – ${ongoing?'now':shortDate(end)} · ${fmtDur(dayDiff(p.start,end)+1)}${wtxt}</span>
+          <button class="del-btn" onclick="delPhase(this,'${p.start}')" title="Remove phase">×</button></div>`;
+      }).join('')+`</div>`;
+    }
+    el.innerHTML=html+`</div>`;
+  }
+
+  // Alerts specific to the first two weeks of a new phase.
+  function transitionAlerts(){
+    const cur=currentPhase(); if(!cur) return '';
+    const prev=prevPhaseOf(cur), days=dayDiff(cur.start,todayKey());
+    if(!prev || days>14) return '';
+    if(prev.type==='cut' && cur.type!=='cut')
+      return `<div class="mt-alert info">Coming off a cut: expect the scale to jump ~3–5 lb in the first week as glycogen refills (each gram is stored with ~3 g of water). That's not fat. Judge the new rate from week 3 on.</div>`;
+    if(cur.type==='cut' && prev.type!=='cut')
+      return `<div class="mt-alert info">Starting a cut: the first week's 2–4 lb drop is mostly glycogen and water. The real fat-loss rate shows from week 2–3.</div>`;
+    return '';
+  }
+
   function renderMaint(){
-    const R=estimateMaint(), cfg=R.cfg;
+    renderPhaseCard();
+    let R=estimateMaint(); const cfg=R.cfg;
     [...document.querySelectorAll('#mtWinChips button')].forEach(b=>b.classList.toggle('active', parseInt(b.dataset.w)===cfg.win));
     document.getElementById('mtStart').value=cfg.start||'';
     document.getElementById('mtStart').max=todayKey();
-    document.getElementById('mtWinSub').textContent = R.startKey>'0000' ? `from ${shortDate(R.startKey)}` : 'all data';
+    document.getElementById('mtWinSub').textContent = R.startKey>'0000'
+      ? `from ${shortDate(R.startKey)}${R.floorBy==='phase'?' (phase settle)':(R.floorBy==='manual'?' (your filter)':'')}` : 'all data';
     const el=document.getElementById('mtMain');
+    const cur=currentPhase();
+    const live=R;
+
+    // New phase without enough data yet → carry forward the estimate from just before it started.
+    let carried=null;
+    if(R.status==='building' && cur){
+      const C=estimateMaint({ end:addDaysKey(cur.start,-1), carried:true });
+      if(C.status==='ok'){ carried=C; R=C; }
+    }
 
     if(R.status==='building'){
       const pct=Math.min(100, Math.round(100*Math.min(R.nW/14, R.span/14, R.nI/13)));
-      el.innerHTML=`<div class="card">
+      el.innerHTML=transitionAlerts()+`<div class="card">
         <div class="card-title">Maintenance estimate <span class="conf-pill lo">Building</span></div>
         <div style="font-size:14px;line-height:1.55;margin-bottom:6px">Not enough steady data in this window yet.</div>
         <div class="mt-progress"><div style="width:${pct}%"></div></div>
         <div class="mt-src">${R.nW} weigh-ins · ${R.span} day span · ${R.nI} intake days logged<br>
         First estimate at ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days with ${MT_MIN.intake}+ intake days.
         With typical water carryover, expect roughly ±250 kcal at 4 weeks and ±150 at 6 weeks of daily morning weigh-ins on steady intake.</div>
-        ${cfg.start?`<div class="mt-note">Start-date filter is on (${shortDate(cfg.start)}). Clear it below if you meant to include earlier data.</div>`:''}
+        ${R.floorBy==='phase'?`<div class="mt-note">Counting from ${shortDate(R.startKey)}, ${PHASE_SETTLE_DAYS} days after your phase change.</div>`:''}
+        ${R.floorBy==='manual'?`<div class="mt-note">Start-date filter is on (${shortDate(cfg.start)}). Clear it below if you meant to include earlier data.</div>`:''}
       </div>`;
       return;
     }
 
-    const rate=cfg.rate, targetLbWk=rate/100*R.trendW;
+    const rate = cur ? cur.rate : cfg.rate, targetLbWk=rate/100*R.trendW;
     const recIn=R.tdee + targetLbWk*KCAL_PER_LB/7;
     const cut=rate<0;
     const proPerLb=cut?1.0:0.8;
@@ -1215,10 +1453,14 @@
     const overCeil = cut && R.ceiling && recDeficit>R.ceiling;
     const rateChips=MT_RATES.map(r=>`<button class="${r===rate?'active':''}" onclick="setMtRate(${r})">${r===0?'Maint':(r>0?'+':'−')+Math.abs(r)+'%'}</button>`).join('');
     const balTxt = R.balance<0 ? `${kc(-R.balance)} deficit` : `${kc(R.balance)} surplus`;
+    const prevLabel = carried && carried.phase ? PHASE_TYPES[carried.phase.type].label.toLowerCase() : 'the period before this phase';
+    const rebound = carried && carried.phase && carried.phase.type==='cut' && cur.type!=='cut';
 
     el.innerHTML=`
+      ${transitionAlerts()}
+      ${carried?`<div class="mt-alert info"><b>Carried forward</b> from ${prevLabel} (${shortDate(R.first)} – ${shortDate(R.last)}). New-phase data so far: ${live.nW} weigh-ins since ${shortDate(live.startKey)}; the live estimate takes over at ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days.${rebound?' Coming off a cut, true maintenance usually runs ~100–200 kcal above this as daily movement and metabolic rate recover, so this is a conservative starting point.':''}</div>`:''}
       <div class="card">
-        <div class="card-title">Maintenance estimate <span class="conf-pill ${R.grade}">${R.gradeTxt}</span></div>
+        <div class="card-title">${carried?'Maintenance (last phase)':'Maintenance estimate'} <span class="conf-pill ${R.grade}">${R.gradeTxt}</span></div>
         <div class="mt-hero">
           <div class="mt-big">${kc(R.tdee)}<span class="u"> kcal/day</span></div>
           <div class="mt-pm">± ${kc(R.ci)} kcal</div>
@@ -1231,7 +1473,7 @@
       ${R.warnings.map(w=>`<div class="mt-alert ${w.cls}">${w.html}</div>`).join('')}
 
       <div class="card">
-        <div class="card-title">Where you are</div>
+        <div class="card-title">${carried?'End of last phase':'Where you are'}</div>
         <div class="mt-stats">
           <div class="mt-stat"><span class="lbl">Avg intake</span><span class="val" style="color:var(--yellow)">${kc(R.avgIn)}</span><span class="sub2">kcal/day logged</span></div>
           <div class="mt-stat"><span class="lbl">Energy balance</span><span class="val">${sgn(R.balance,0)}</span><span class="sub2">kcal/day · ${balTxt}</span></div>
@@ -1246,20 +1488,21 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Set your intake <span class="sub">target rate, % BW / week</span></div>
+        <div class="card-title">Set your intake <span class="sub">${cur?`${PHASE_TYPES[cur.type].label} target`:'target rate'}, % BW / week</span></div>
         <div class="mt-chips">${rateChips}</div>
         <div class="mt-rec">
           <div class="mt-rec-row"><span>Eat</span><strong class="y">${kc(Math.round(recIn/10)*10)} kcal</strong></div>
           <div class="mt-rec-row"><span>Target rate</span><strong>${sgn(targetLbWk,2)} lb/wk</strong></div>
-          <div class="mt-rec-row"><span>Change vs current avg</span><strong>${sgn(recIn-R.avgIn,0)} kcal</strong></div>
+          <div class="mt-rec-row"><span>Change vs ${carried?'last phase':'current'} avg</span><strong>${sgn(recIn-R.avgIn,0)} kcal</strong></div>
           <div class="mt-rec-row"><span>Protein (${proPerLb.toFixed(1)} g/lb trend wt)</span><strong>${proTarget} g</strong></div>
-          ${R.avgPro!=null?`<div class="mt-rec-row"><span>Protein logged (avg)</span><strong>${Math.round(R.avgPro)} g</strong></div>`:''}
-          ${R.ceiling?`<div class="mt-rec-row"><span>Fat-release ceiling (${round(R.bf,1)}% BF)</span><strong style="color:${overCeil?'var(--red)':'var(--text)'}">${kc(R.ceiling)} kcal/day</strong></div>`:''}
+          ${R.avgPro!=null&&!carried?`<div class="mt-rec-row"><span>Protein logged (avg)</span><strong>${Math.round(R.avgPro)} g</strong></div>`:''}
+          ${R.ceiling&&cut?`<div class="mt-rec-row"><span>Fat-release ceiling (${round(R.bf,1)}% BF)</span><strong style="color:${overCeil?'var(--red)':'var(--text)'}">${kc(R.ceiling)} kcal/day</strong></div>`:''}
         </div>
         <div class="mt-note">${cut
           ? `Cut guide: ~0.7%/wk above 14% BF, ~0.5%/wk below it. ${overCeil?'<b style="color:var(--red)">This target asks for more deficit than your fat stores can supply: pick a slower rate.</b> ':''}The recommendation carries the same ± ${kc(R.ci)} as the estimate. Re-check in 2 weeks and adjust by 100–150 kcal if the trend misses.`
           : rate===0 ? `Maintenance intake. Right after a cut, expect a 3–5 lb glycogen/water jump in week one: that's not fat. Re-estimate after 2 steady weeks.`
-          : `Lean-bulk guide: ~0.25–0.4%/wk. Faster mostly adds fat at your training age. Ignore the first week's glycogen jump when judging the rate.`}</div>
+          : `Lean-bulk guide: ~0.25–0.4%/wk. Faster mostly adds fat at your training age. Ignore the first week's glycogen jump when judging the rate.`}
+          ${cur?` Rate changes are saved to your ${PHASE_TYPES[cur.type].label.toLowerCase()} phase and sync across devices.`:''}</div>
       </div>`;
   }
 
@@ -1280,6 +1523,7 @@
         b.bf?`<div class="hist-row"><span>Body Fat</span><strong>${b.bf}%</strong></div>`:'',
         b.muscle?`<div class="hist-row"><span>Muscle Mass</span><strong>${b.muscle} lbs</strong></div>`:'',
         b.water?`<div class="hist-row"><span>Water</span><strong>${b.water}%</strong></div>`:'',
+        b.waist?`<div class="hist-row"><span>Waist</span><strong>${b.waist} in</strong></div>`:'',
       ].join('');
 
       // Workout summary
@@ -1299,8 +1543,9 @@
 
       const noteRow= d.notes?`<div class="hist-row" style="flex-direction:column;gap:4px"><span>Notes</span><span class="hist-note">${escHtml(d.notes.substring(0,180))}${d.notes.length>180?'…':''}</span></div>`:'';
 
-      if(!bodyRows&&!nutRow&&!noteRow&&!workRow) return '';
-      return `<div class="hist-item"><div class="hist-date">${labelFor(k)} <span class="k">${k}</span></div>${bodyRows}${workRow}${nutRow}${noteRow}</div>`;
+      const phRow = d.phase && PHASE_TYPES[d.phase.type] ? `<div class="hist-row"><span>Phase</span><strong style="color:${PHASE_TYPES[d.phase.type].color}">${PHASE_TYPES[d.phase.type].label} begins</strong></div>` : '';
+      if(!bodyRows&&!nutRow&&!noteRow&&!workRow&&!phRow) return '';
+      return `<div class="hist-item"><div class="hist-date">${labelFor(k)} <span class="k">${k}</span></div>${phRow}${bodyRows}${workRow}${nutRow}${noteRow}</div>`;
     }).join('');
   }
 
@@ -1314,6 +1559,8 @@
       'Below is my logged body data, workouts (Heavy Duty Hybrid V10), and daily nutrition.',
       'Please review trends, flag anything concerning, and suggest adjustments to training or nutrition.','',
     ];
+    const P=currentPhase();
+    if(P) lines.push(`CURRENT PHASE: ${PHASE_TYPES[P.type].label} since ${P.start} (target ${P.rate>0?'+':''}${P.rate}% BW/wk)`,'');
     const M=estimateMaint();
     if(M.status==='ok'){
       lines.push(`MAINTENANCE ESTIMATE: ${kc(M.tdee)} ± ${kc(M.ci)} kcal/day (95%, ${M.gradeTxt.toLowerCase()})`);
@@ -1328,6 +1575,7 @@
       if(b.bf) bp.push(`Body Fat: ${b.bf}%`);
       if(b.muscle) bp.push(`Muscle: ${b.muscle} lbs`);
       if(b.water) bp.push(`Water: ${b.water}%`);
+      if(b.waist) bp.push(`Waist: ${b.waist} in`);
       if(bp.length) lines.push('  Body: '+bp.join(' | '));
 
       const w=d.workout;
@@ -1386,7 +1634,11 @@
     localStorage.setItem('jsonbinId', bin);
     localStorage.setItem('jsonbinKey', key);
     setStatus('Saved. Syncing…',true);
-    try{ await initialSync(); await pushSync(); setStatus('Saved & synced ✓',true); setTimeout(closeSettings,700); }
+    try{
+      await syncNow();
+      if(document.getElementById('syncPill').classList.contains('err')) throw new Error('check Bin ID / key');
+      setStatus('Saved & synced ✓',true); setTimeout(closeSettings,700);
+    }
     catch(e){ setStatus('Saved locally, sync failed: '+e.message,false); }
   }
   function downloadBackup(){
