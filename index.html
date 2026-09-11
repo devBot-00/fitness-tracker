@@ -723,7 +723,16 @@
 
   // ═══════════════ Storage (local) ═══════════════
   const LS_KEY='fitnessLog';
-  function allData(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch(e){ return {}; } }
+  // Only YYYY-MM-DD keys holding an object are log days. Anything else (e.g. the placeholder JSON a
+  // JSONBin bin had to be created with, like {"sample":"Hello World"}) is dropped wherever the log is read.
+  const DAY_KEY=/^\d{4}-\d{2}-\d{2}$/;
+  const isDay=v=>!!v && typeof v==='object' && !Array.isArray(v);
+  function cleanLog(o){
+    const out={}; if(!isDay(o)) return out;
+    Object.keys(o).forEach(k=>{ if(DAY_KEY.test(k) && isDay(o[k])) out[k]=o[k]; });
+    return out;
+  }
+  function allData(){ try{ return cleanLog(JSON.parse(localStorage.getItem(LS_KEY)||'{}')); }catch(e){ return {}; } }
   function saveAll(d){ localStorage.setItem(LS_KEY, JSON.stringify(d)); }
   function blankDay(){ return { body:{}, food:[], notes:'', workout:null }; }
   function dayData(k){ return allData()[k] || blankDay(); }
@@ -773,7 +782,7 @@
   }
   function parseLog(text){
     if(!text || !text.trim()) return {};
-    try{ const v=JSON.parse(text); return (v && typeof v==='object' && !Array.isArray(v)) ? v : {}; }
+    try{ return cleanLog(JSON.parse(text)); }
     catch(e){ const err=new Error('corrupt'); err.stage='read'; err.status=-1; throw err; }
   }
   async function pullRemote(id, token){
@@ -814,7 +823,7 @@
     const res=await fetch('https://api.jsonbin.io/v3/b/'+L.bin+'/latest',{ headers:{ 'X-Access-Key':L.key, 'X-Bin-Meta':'false' }, cache:'no-store' });
     if(!res.ok) throw new Error('JSONBin HTTP '+res.status);
     const remote=await res.json();
-    const days = remote && typeof remote==='object' && !Array.isArray(remote) ? Object.keys(remote).length : 0;
+    const days = Object.keys(cleanLog(remote)).length;
     if(days) saveAll(mergeData(allData(), remote));
     lsSet('jsonbinKey',''); lsSet('jsonbinId',''); lsSet('jsonbinReqs','');
     return days;
@@ -831,6 +840,7 @@
     if(s===403) return '<b>The token can’t write gists.</b> On GitHub, edit the token and set Account permissions → <b>Gists: Read and write</b> (a classic token needs the <b>gist</b> scope).'+d;
     if(s===404) return 'No gist with that ID on this account. Clear the Gist ID box and Save &amp; Sync: the app will find or create the right one.'+d;
     if(s===422) return 'GitHub rejected the update.'+d;
+    if(s===undefined) return `Sync failed inside the app: ${escHtml((e.name||'Error')+': '+(e.message||e))}. Your log on this device is untouched. Send this message to get it fixed.`;
     return `Sync failed (HTTP ${s}).`+d;
   }
 
@@ -840,7 +850,8 @@
   const SECTIONS = { body:['body'], nutrition:['nutrition','food'], notes:['notes'], workout:['workout'], phase:['phase'] };
   function secTs(d,sec){ return d._s ? (d._s[sec]||0) : (d._ts||0); }
   function mergeDay(a,b){
-    if(!a) return b; if(!b) return a;
+    if(!isDay(a)) return isDay(b) ? b : undefined;
+    if(!isDay(b)) return a;
     const newer=(b._ts||0)>(a._ts||0)?b:a;
     const out={ _ts:Math.max(a._ts||0,b._ts||0), _s:{} };
     // carry any unknown fields from the newer copy
@@ -854,8 +865,8 @@
     return out;
   }
   function mergeData(a,b){
-    const out={}; a=a||{}; b=b||{};
-    new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{ out[k]=mergeDay(a[k],b[k]); });
+    const out={}; a=cleanLog(a); b=cleanLog(b);
+    new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{ const d=mergeDay(a[k],b[k]); if(d) out[k]=d; });
     return out;
   }
   // Order-independent serialisation for change detection.
@@ -891,8 +902,8 @@
         if(localChanged) saveAll(merged);
         // Never upload an empty log: there's nothing to protect, and it would wipe the gist on a fresh device.
         if(m!==stableStr(remote) && Object.keys(merged).length) await pushRemote(merged);
-        if(localChanged) refreshAfterSync();
         lastSyncErr=null; lastSyncOk=Date.now();
+        if(localChanged){ try{ refreshAfterSync(); }catch(re){ console.error('HDH Log: re-render after sync failed', re); } }
         setSync('ok','Synced'); document.getElementById('syncPill').title='Synced '+new Date().toLocaleTimeString();
       }catch(e){
         lastSyncErr=e; localDirty = localDirty || wasDirty;
@@ -1970,6 +1981,8 @@
   });
 
   // ═══════════════ Init ═══════════════
+  // One-time purge of non-day entries left in storage by the old sync (e.g. JSONBin placeholder JSON).
+  try{ const raw=JSON.parse(localStorage.getItem(LS_KEY)||'{}'); if(isDay(raw) && Object.keys(raw).length!==Object.keys(cleanLog(raw)).length) saveAll(cleanLog(raw)); }catch(e){}
   loadDay();
   initialSync();
 </script>
