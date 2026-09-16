@@ -641,55 +641,62 @@
 </div>
 
 <script>
-  // ═══════════════ ROUTINE — HDH V10 (5-Day) ═══════════════
-  // Shared exercise ids across days let progress charts track a lift everywhere it appears.
+  // ═══════════════ ROUTINE — HDH V9d (4-Day Upper/Lower Split) ═══════════════
+  // Edit this block to change the program. Everything else (chips, charts,
+  // history, export) reads from it — nothing else hardcodes exercises.
+  //
+  // `id` is the storage key for your logged history: keep an id the same and the
+  // progress chart carries over even if you rename the exercise; a new id starts
+  // a fresh chart. Shared ids (e.g. fly_incline on Tue + Sat) track as one line.
   const ROUTINE = {
-    mon: { name: 'Full Lower Body — Heavy', tag: 'Lower · Heavy', len: '12 sets · ~45 min', exercises: [
-      { id: 'deadlift',   name: 'Deadlift (Conv/Trap Bar)',   target: '2×4-6' },
-      { id: 'squat',      name: 'Squat (Back/Hack/Pendulum)', target: '2×6-8' },
-      { id: 'rev_lunge',  name: 'Reverse Lunge (Wtd)',        target: '2×10-12ea' },
-      { id: 'leg_curl',   name: 'Leg Curl',                   target: '2×8-12' },
-      { id: 'calf_stand', name: 'Standing Calf Raise',        target: '2×10-15' },
-      { id: 'hlr',        name: 'Hanging Leg Raise',          target: '2×10-15' },
+    mon: { name: 'Lower A — Deadlift Focus', tag: 'Lower A', len: '14 sets · ~50 min', exercises: [
+      { id: 'deadlift',       name: 'Deadlift (Conv/Trap Bar)', target: '2×4-6',     note: 'stop 1 rep shy of failure' },
+      { id: 'pendulum_squat', name: 'Pendulum / Hack Squat',    target: '2×6-10' },
+      { id: 'rev_lunge',      name: 'Reverse Lunge (Wtd)',      target: '2×10-12ea' },
+      { id: 'leg_curl',       name: 'Seated Leg Curl',          target: '2×8-12' },
+      { id: 'calf_seat',      name: 'Seated Calf Raise',        target: '2×10-15' },
+      { id: 'hlr',            name: 'Hanging Leg Raise',        target: '2×10-15' },
+      { id: 'face_pull',      name: 'Face Pull',                target: '2×12-15' },
     ]},
-    tue: { name: 'Full Upper Body', tag: 'Upper', len: '14 sets · ~55 min', exercises: [
-      { id: 'ohp',         name: 'Overhead Press',        target: '2×6-10' },
-      { id: 'incline_bb',  name: 'Incline Barbell Press', target: '2×6-10' },
-      { id: 'fly_incline', name: 'Chest Fly (Incline)',   target: '2×8-12' },
-      { id: 'wtd_pullup',  name: 'Weighted Pull-ups',     target: '2×6-10' },
-      { id: 'cs_row',      name: 'Chest-Supported Row',   target: '2×6-10' },
-      { id: 'lat_raise',   name: 'Lateral Raise',         target: '2×10-15' },
-      { id: 'face_pull',   name: 'Face Pull',             target: '2×12-15' },
-    ]},
-    thu: { name: 'Full Lower Body — Variant', tag: 'Lower · Variant', len: '12 sets · ~45 min', exercises: [
-      { id: 'squat',       name: 'Squat (Back/Hack/Pendulum)', target: '2×6-10' },
-      { id: 'rdl',         name: 'Romanian Deadlift',          target: '2×6-10' },
-      { id: 'leg_ext',     name: 'Leg Extension',              target: '2×10-15' },
-      { id: 'nordic',      name: 'Nordic Curl',                target: '2×6-8' },
-      { id: 'calf_seat',   name: 'Seated Calf Raise',          target: '2×10-15' },
-      { id: 'side_crunch', name: 'Side-to-Side Crunch',        target: '2×10-15' },
-    ]},
-    fri: { name: 'Push', tag: 'Push', len: '12 sets · ~45 min', exercises: [
-      { id: 'flat_press',   name: 'Flat Press (BB/DB)',        target: '2×6-10' },
-      { id: 'db_shoulder',  name: 'Seated DB Shoulder Press',  target: '2×6-10' },
-      { id: 'dips',         name: 'Dips',                      target: '2×6-10' },
-      { id: 'fly_incline',  name: 'Chest Fly (Incline)',       target: '2×8-12' },
-      { id: 'lat_raise',    name: 'Lateral Raise',             target: '2×10-15' },
-      { id: 'tri_pushdown', name: 'Tricep Pushdown',           target: '2×8-12' },
-    ]},
-    sat: { name: 'Pull — Back Size Priority', tag: 'Pull', len: '12 sets · ~50 min', exercises: [
-      { id: 'pullup',       name: 'Pull-ups',              target: '2×6-10' },
-      { id: 'bb_row',       name: 'Barbell Row',           target: '2×6-10' },
-      { id: 'lat_pulldown', name: 'Lat Pulldown (Wide)',   target: '2×8-12' },
-      { id: 'db_row',       name: 'Single-Arm DB Row',     target: '2×8-12' },
-      { id: 'rear_delt',    name: 'Rear Delt Fly',         target: '2×10-15' },
+    tue: { name: 'Upper A — Heavy Press + Pull', tag: 'Upper A', len: '14 sets · ~50 min', exercises: [
+      { id: 'incline_bb',   name: 'Incline Barbell Press', target: '2×6-10' },
+      { id: 'wtd_pullup',   name: 'Weighted Pull-ups',     target: '2×6-10' },
+      { id: 'ohp',          name: 'Overhead Press',        target: '2×6-10' },
+      { id: 'cs_row',       name: 'Chest-Supported Row',   target: '2×6-10' },
+      { id: 'fly_incline',  name: 'Chest Fly',             target: '2×8-12' },
+      { id: 'tri_pushdown', name: 'Tricep Pushdown',       target: '2×8-12' },
       { id: 'incline_curl', name: 'Incline DB Curl',       target: '2×8-12' },
+    ]},
+    thu: { name: 'Lower B — Squat Focus', tag: 'Lower B', len: '14 sets · ~50 min', exercises: [
+      { id: 'back_squat',   name: 'Back Squat',          target: '2×6-10', note: 'stop 1 rep shy of failure' },
+      { id: 'rdl',          name: 'Romanian Deadlift',   target: '2×6-10' },
+      { id: 'leg_ext',      name: 'Leg Extension',       target: '2×10-15' },
+      { id: 'nordic',       name: 'Nordic Curl',         target: '2×6-8' },
+      { id: 'calf_stand',   name: 'Standing Calf Raise', target: '2×10-15' },
+      { id: 'abs',          name: 'Abs',                 target: '2×10-15' },
+      { id: 'rear_delt',    name: 'Rear Delt Fly',       target: '2×12-15' },
+    ]},
+    sat: { name: 'Upper B — Chest + Back', tag: 'Upper B', len: '16 sets · ~50 min', exercises: [
+      { id: 'flat_press',   name: 'Flat Chest Press',       target: '2×6-10' },
+      { id: 'ng_pullup',    name: 'Neutral-Grip Pull-ups',  target: '2×6-10' },
+      { id: 'bb_row',       name: 'Barbell Row',            target: '2×6-10', note: 'brace hard — 48h before Monday\'s deadlift' },
+      { id: 'fly_incline',  name: 'Chest Fly',              target: '2×8-12' },
+      { id: 'lat_raise',    name: 'Lateral Raise',          target: '2×10-15' },
+      { id: 'tri_pushdown', name: 'Tricep Pushdown',        target: '2×8-12' },
+      { id: 'incline_curl', name: 'Incline DB Curl',        target: '2×8-12', note: 'superset with Hammer Curl — no rest' },
+      { id: 'hammer_curl',  name: 'Hammer Curl',            target: '2×8-12', note: 'superset — 90 sec/round' },
     ]},
   };
   const WEEKDAY = { 0:'sun', 1:'mon', 2:'tue', 3:'wed', 4:'thu', 5:'fri', 6:'sat' };
-  const SESS_ORDER = ['mon','tue','thu','fri','sat'];
+  const SESS_ORDER = ['mon','tue','thu','sat'];
   // On a rest weekday, default to the nearest previous training session.
-  const REST_FALLBACK = { wed:'tue', sun:'sat' };
+  const REST_FALLBACK = { wed:'tue', fri:'thu', sun:'sat' };
+  const REST_TAG = { wed:' · full rest', fri:' · full rest', sun:' · weekly review' };
+  const REST_NOTE = {
+    wed: 'Full rest — protects Thursday\'s squat + RDL. Sprints moved to Saturday, post-session.',
+    fri: 'Full rest — recovery window ahead of Saturday\'s session.',
+    sun: 'Weekly review day.',
+  };
   function defaultSession(k){ const wd=keyWeekday(k); return ROUTINE[wd] ? wd : (REST_FALLBACK[wd] || 'mon'); }
 
   // Build id → display-name map for any exercise anywhere in the routine.
@@ -1001,7 +1008,7 @@
     const waistDue = !b.waist && (!prevW || dayDiff(prevW,current)>=7);
     const pill=(ok,txt,cls)=>`<span class="sum-pill ${cls||(ok?'ok':'')}"><span class="dot"></span>${txt}</span>`;
     el.innerHTML=
-      (isRest ? `<span class="sum-tag rest">Rest day${wd==='wed'?' · optional sprints':''}</span>` : `<span class="sum-tag">${def.tag||def.name}</span>`)+
+      (isRest ? `<span class="sum-tag rest">Rest day${REST_TAG[wd]||''}</span>` : `<span class="sum-tag">${def.tag||def.name}</span>`)+
       pill(!!b.weight,'Weigh-in')+
       pill(t.cals>0,'Food')+
       (isRest?'':pill(nDone===nEx, `Lifts ${nDone}/${nEx}`))+
@@ -1113,8 +1120,8 @@
     const body=document.getElementById('workoutBody');
     if(restDay){
       document.getElementById('sessLen').textContent='rest day';
-      const wed=keyWeekday(current)==='wed';
-      body.innerHTML=`<div class="rest-card"><b>Recovery day.</b> ${wed?'Light sprints only if your legs feel fresh: Thursday\'s Nordic curls load the same hamstrings.':'Weekly review day.'}<br><span>Training anyway? Tap a session above.</span></div>`;
+      const restNote=REST_NOTE[keyWeekday(current)]||'Full rest.';
+      body.innerHTML=`<div class="rest-card"><b>Recovery day.</b> ${restNote}<br><span>Training anyway? Tap a session above.</span></div>`;
       return;
     }
     if(def.rest){
@@ -1142,7 +1149,7 @@
         : `<span class="pl">Prev</span><span class="pv none">—</span>`;
       html+=`
         <div class="lift${cur.done?' done':''}">
-          <div class="lift-head"><span class="lift-name">${nameHtml(ex.name)}</span><span class="lift-target">${ex.target}</span></div>
+          <div class="lift-head"><span class="lift-name">${nameHtml(ex.name)}${ex.note?`<span class="var">${escHtml(ex.note)}</span>`:''}</span><span class="lift-target">${ex.target}</span></div>
           <div class="lift-row">
             <div class="prev">${prev}</div>
             <div class="lift-in">${trend}<input type="number" inputmode="decimal" value="${cur.weight??''}" placeholder="—" onchange="saveLift('${ex.id}')" id="w-${ex.id}" aria-label="${escHtml(ex.name)} weight"><span class="unit">lb</span></div>
@@ -1843,7 +1850,7 @@
     if(!keys.length){ document.getElementById('exportTa').value='No data logged yet.'; return; }
     const lines=[
       'HDH FITNESS LOG — LAST 14 DAYS','══════════════════════════','',
-      'Below is my logged body data, workouts (Heavy Duty Hybrid V10), and daily nutrition.',
+      'Below is my logged body data, workouts (Heavy Duty Hybrid V9d), and daily nutrition.',
       'Please review trends, flag anything concerning, and suggest adjustments to training or nutrition.','',
     ];
     const P=currentPhase();
