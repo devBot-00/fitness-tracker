@@ -1,0 +1,20 @@
+
+A. Steady cut (glycogen already settled, weigh-ins from day 0)  (400 simulated cuts; error = estimate − true current maintenance, kcal/day)
+estimator                                 day 12                day 21                day 28                day 42                day 60
+                            RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI
+OLS (app, ρ3500)            316 +  18  98%  1431   182   -0  95%   564  123 +  13  95%   353   89 +  35  89%   163   89 +  52  89%   162
+OLS ρ3200                    290  -37  98%  1308   173  -49  94%   516   117  -35  95%   322    73  -12  91%   149   63 +   5  95%   148
+KF no prior                  239  -30  98%   605   133  -24  96%   288    91  -19  97%   199    65  -29  95%   125    51  -32  94%    95
+KF prior ±300               194 +   6  97%   461   121   -7  96%   268    86   -9  97%   193    63  -25  96%   125    50  -31  94%    96
+KF prior +300 biased        244 + 148  93%   470  129 +  44  96%   275   87 +  17  97%   198    60  -16  96%   127    48  -28  95%    97
+KF prior, no gate/carb       198   -1  97%   465   140  -41  95%   276   106  -42  92%   199    75  -38  92%   129    52  -32  94%    98
+
+B. Cut starts day 0 (2–3 lb water drop over first week; app skips 10 days, KF distrusts tissue slope for 10)  (400 simulated cuts; error = estimate − true current maintenance, kcal/day)
+estimator                                 day 12                day 21                day 28                day 42                day 60
+                            RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI  RMSE  bias  cov  ±CI
+OLS (app, ρ3500)                (building 0/400)   429  -83  97%  1704   227  -18  95%   830  113 +  26  93%   269   87 +  47  88%   162
+OLS ρ3200                       (building 0/400)   404 -124  96%  1558   215  -63  95%   759   102  -21  94%   246   65 +   1  94%   148
+KF no prior                 322 +  40 100%  1918   314   -5  95%   609   167  -13  94%   331    90  -31  93%   162    63  -37  90%   103
+KF prior ±300               292 +  80  95%   605  220 +  49  96%   442  147 +  17  95%   296    83  -22  94%   158    60  -34  92%   103
+KF prior +300 biased        470 + 377  79%   605  296 + 204  86%   445  168 +  85  89%   300    80   -5  95%   160    57  -29  93%   104
+KF prior, no gate/carb      292 +  80  96%   608  224 +  15  95%   447   158  -14  95%   299    92  -30  92%   160    58  -31  91%   104
