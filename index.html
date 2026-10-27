@@ -864,66 +864,72 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
 </script>
 
 <script>
-  // ═══════════════ ROUTINE — HDH V9d (4-Day Upper/Lower Split) ═══════════════
+  // ═══════════════ ROUTINE — HDH 3D-V1 (3-Day Full Body Rotation) ═══════════════
   // Edit this block to change the program. Everything else (chips, charts,
   // history, export) reads from it — nothing else hardcodes exercises.
   //
   // `id` is the storage key for your logged history: keep an id the same and the
   // progress chart carries over even if you rename the exercise; a new id starts
-  // a fresh chart. Shared ids (e.g. fly_incline on Tue + Sat) track as one line.
+  // a fresh chart. Shared ids (e.g. lat_raise on Mon + Fri) track as one line.
+  // Bump PROGRAM_ID when you switch programs: workouts logged under an older
+  // program keep their lifts in History/Export instead of being re-read through
+  // this routine.
+  const PROGRAM_ID = '3D-V1';
+  const PROGRAM_NAME = 'Heavy Duty Hybrid 3D-V1';
   const ROUTINE = {
-    mon: { name: 'Lower A — Deadlift Focus', tag: 'Lower A', len: '14 sets · ~50 min', exercises: [
-      { id: 'deadlift',       name: 'Deadlift (Conv/Trap Bar)', target: '2×4-6',     note: 'stop 1 rep shy of failure' },
-      { id: 'pendulum_squat', name: 'Pendulum / Hack Squat',    target: '2×6-10' },
-      { id: 'rev_lunge',      name: 'Reverse Lunge (Wtd)',      target: '2×10-12ea' },
-      { id: 'leg_curl',       name: 'Seated Leg Curl',          target: '2×8-12' },
-      { id: 'calf_seat',      name: 'Seated Calf Raise',        target: '2×10-15' },
-      { id: 'hlr',            name: 'Hanging Leg Raise',        target: '2×10-15' },
-      { id: 'face_pull',      name: 'Face Pull',                target: '2×12-15' },
+    mon: { name: 'Full Body A — Squat + Press', tag: 'Full Body A', len: '14 sets · ~55 min', exercises: [
+      { id: 'back_squat',   name: 'Back Squat',          target: '2×5-8',   note: 'stop 1 rep shy of failure' },
+      { id: 'flat_press',   name: 'Flat Barbell Press',  target: '2×6-10' },
+      { id: 'bb_row',       name: 'Barbell Row',         target: '2×6-10' },
+      { id: 'rdl',          name: 'Romanian Deadlift',   target: '2×8-10',  note: 'leave 2 in the tank — deadlift is 48h out' },
+      { id: 'lat_raise',    name: 'Lateral Raise',       target: '2×10-15' },
+      { id: 'tri_pushdown', name: 'Tricep Pushdown',     target: '2×8-12' },
+      { id: 'hlr',          name: 'Hanging Leg Raise',   target: '2×10-15' },
     ]},
-    tue: { name: 'Upper A — Heavy Press + Pull', tag: 'Upper A', len: '14 sets · ~50 min', exercises: [
-      { id: 'incline_bb',   name: 'Incline Barbell Press', target: '2×6-10' },
-      { id: 'wtd_pullup',   name: 'Weighted Pull-ups',     target: '2×6-10' },
-      { id: 'ohp',          name: 'Overhead Press',        target: '2×6-10' },
-      { id: 'cs_row',       name: 'Chest-Supported Row',   target: '2×6-10' },
-      { id: 'fly_incline',  name: 'Chest Fly',             target: '2×8-12' },
-      { id: 'tri_pushdown', name: 'Tricep Pushdown',       target: '2×8-12' },
-      { id: 'incline_curl', name: 'Incline DB Curl',       target: '2×8-12' },
+    wed: { name: 'Full Body B — Deadlift + Vertical', tag: 'Full Body B', len: '14 sets · ~55 min', exercises: [
+      { id: 'deadlift',     name: 'Deadlift (Conv/Trap Bar)', target: '2×4-6',  note: 'stop 1 rep shy of failure' },
+      { id: 'ohp',          name: 'Overhead Press',           target: '2×6-10' },
+      { id: 'wtd_pullup',   name: 'Weighted Pull-ups',        target: '2×6-10' },
+      { id: 'leg_curl',     name: 'Seated Leg Curl',          target: '2×8-12' },
+      { id: 'incline_curl', name: 'Incline DB Curl',          target: '2×8-12' },
+      { id: 'calf_stand',   name: 'Standing Calf Raise',      target: '2×10-15' },
+      { id: 'rear_delt',    name: 'Rear Delt Fly',            target: '2×12-15' },
     ]},
-    thu: { name: 'Lower B — Squat Focus', tag: 'Lower B', len: '14 sets · ~50 min', exercises: [
-      { id: 'back_squat',   name: 'Back Squat',          target: '2×6-10', note: 'stop 1 rep shy of failure' },
-      { id: 'rdl',          name: 'Romanian Deadlift',   target: '2×6-10' },
-      { id: 'leg_ext',      name: 'Leg Extension',       target: '2×10-15' },
-      { id: 'nordic',       name: 'Nordic Curl',         target: '2×6-8' },
-      { id: 'calf_stand',   name: 'Standing Calf Raise', target: '2×10-15' },
-      { id: 'abs',          name: 'Abs',                 target: '2×10-15' },
-      { id: 'rear_delt',    name: 'Rear Delt Fly',       target: '2×12-15' },
-    ]},
-    sat: { name: 'Upper B — Chest + Back', tag: 'Upper B', len: '16 sets · ~50 min', exercises: [
-      { id: 'flat_press',   name: 'Flat Chest Press',       target: '2×6-10' },
-      { id: 'ng_pullup',    name: 'Neutral-Grip Pull-ups',  target: '2×6-10' },
-      { id: 'bb_row',       name: 'Barbell Row',            target: '2×6-10', note: 'brace hard — 48h before Monday\'s deadlift' },
-      { id: 'fly_incline',  name: 'Chest Fly',              target: '2×8-12' },
-      { id: 'lat_raise',    name: 'Lateral Raise',          target: '2×10-15' },
-      { id: 'tri_pushdown', name: 'Tricep Pushdown',        target: '2×8-12' },
-      { id: 'incline_curl', name: 'Incline DB Curl',        target: '2×8-12', note: 'superset with Hammer Curl — no rest' },
-      { id: 'hammer_curl',  name: 'Hammer Curl',            target: '2×8-12', note: 'superset — 90 sec/round' },
+    fri: { name: 'Full Body C — Quad + Incline', tag: 'Full Body C', len: '14 sets · ~50 min', exercises: [
+      { id: 'pendulum_squat', name: 'Pendulum / Hack Squat',     target: '2×8-12', note: 'spine unloaded — no hinge today' },
+      { id: 'incline_bb',     name: 'Incline Barbell Press',     target: '2×6-10' },
+      { id: 'cs_row',         name: 'Chest-Supported Row',       target: '2×8-12' },
+      { id: 'lat_raise',      name: 'Lateral Raise',             target: '2×10-15' },
+      { id: 'oh_tri_ext',     name: 'Overhead Tricep Extension', target: '2×8-12', note: 'long-head stretch' },
+      { id: 'hammer_curl',    name: 'Hammer Curl',               target: '2×8-12' },
+      { id: 'calf_seat',      name: 'Seated Calf Raise',         target: '2×10-15' },
     ]},
   };
   const WEEKDAY = { 0:'sun', 1:'mon', 2:'tue', 3:'wed', 4:'thu', 5:'fri', 6:'sat' };
-  const SESS_ORDER = ['mon','tue','thu','sat'];
+  const SESS_ORDER = ['mon','wed','fri'];
   // On a rest weekday, default to the nearest previous training session.
-  const REST_FALLBACK = { wed:'tue', fri:'thu', sun:'sat' };
-  const REST_TAG = { wed:' · full rest', fri:' · full rest', sun:' · weekly review' };
+  const REST_FALLBACK = { tue:'mon', thu:'wed', sat:'fri', sun:'fri' };
+  const REST_TAG = { tue:' · full rest', thu:' · full rest', sat:' · optional sprints', sun:' · weekly review' };
   const REST_NOTE = {
-    wed: 'Full rest — protects Thursday\'s squat + RDL. Sprints moved to Saturday, post-session.',
-    fri: 'Full rest — recovery window ahead of Saturday\'s session.',
+    tue: 'Full rest — 48h turnaround into Wednesday\'s deadlift.',
+    thu: 'Full rest — recovery window ahead of Friday\'s session.',
+    sat: 'Light sprints only if your legs feel fresh; otherwise full rest — keeps 72h clear of Monday\'s squat.',
     sun: 'Weekly review day.',
   };
   function defaultSession(k){ const wd=keyWeekday(k); return ROUTINE[wd] ? wd : (REST_FALLBACK[wd] || 'mon'); }
+  // A workout belongs to this program only if it was logged under it.
+  // Routine order for current-program workouts; logged order otherwise.
+  function liftIds(w,def){ return def ? (def.exercises||[]).map(e=>e.id) : Object.keys(w.lifts||{}); }
+  function isCurrentProgram(w){ return !!(w && w.prog===PROGRAM_ID && ROUTINE[w.session]); }
 
   // Build id → display-name map for any exercise anywhere in the routine.
-  const EX_NAMES = {};
+  // Retired lifts from earlier programs, so their history and charts keep a readable name.
+  const EX_NAMES = {
+    squat:'Squat (Back/Hack/Pendulum)', rev_lunge:'Reverse Lunge (Wtd)', leg_ext:'Leg Extension',
+    nordic:'Nordic Curl', abs:'Abs', side_crunch:'Side-to-Side Crunch', face_pull:'Face Pull',
+    fly_incline:'Chest Fly', ng_pullup:'Neutral-Grip Pull-ups', pullup:'Pull-ups', dips:'Dips',
+    db_shoulder:'Seated DB Shoulder Press', lat_pulldown:'Lat Pulldown (Wide)', db_row:'Single-Arm DB Row',
+  };
   Object.values(ROUTINE).forEach(s => (s.exercises||[]).forEach(e => { EX_NAMES[e.id] = e.name; }));
 
   // ═══════════════ Date helpers ═══════════════
@@ -1318,11 +1324,11 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     if(d.workout && d.workout.session && ROUTINE[d.workout.session]) return d.workout.session;
     return defaultSession(current); // auto by weekday (nearest training day), overridable
   }
-  function ensureWorkout(d){ if(!d.workout) d.workout={ session:defaultSession(current), lifts:{}, extra:[] }; if(!d.workout.lifts) d.workout.lifts={}; if(!d.workout.extra) d.workout.extra=[]; if(!ROUTINE[d.workout.session]) d.workout.session=defaultSession(current); return d; }
+  function ensureWorkout(d){ if(!d.workout) d.workout={ session:defaultSession(current), prog:PROGRAM_ID, lifts:{}, extra:[] }; if(!d.workout.lifts) d.workout.lifts={}; if(!d.workout.extra) d.workout.extra=[]; if(!ROUTINE[d.workout.session]) d.workout.session=defaultSession(current); return d; }
 
   function setSession(sess){
     const d=ensureWorkout(dayData(current));
-    d.workout.session=sess;
+    d.workout.session=sess; d.workout.prog=PROGRAM_ID;
     setDay(current,d,'workout'); renderWorkout(dayData(current));
   }
 
@@ -1517,6 +1523,8 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     // Union of routine ids and any logged ids, ordered by routine appearance.
     const seen=new Set(); const opts=[];
     SESS_ORDER.forEach(s=>(ROUTINE[s].exercises||[]).forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); opts.push([e.id, EX_NAMES[e.id]]); } }));
+    const data=allData();
+    Object.keys(data).sort().reverse().forEach(k=>{ const l=(data[k].workout||{}).lifts||{}; Object.keys(l).forEach(id=>{ if(!seen.has(id)&&l[id]&&l[id].weight){ seen.add(id); opts.push([id, (EX_NAMES[id]||id)+' (retired)']); } }); });
     sel.innerHTML=opts.map(([id,name])=>`<option value="${id}">${escHtml(name)}</option>`).join('');
     sel.dataset.built='1';
   }
@@ -2168,12 +2176,12 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
       // Workout summary
       let workRow='';
       const w=d.workout;
-      if(w && w.session && ROUTINE[w.session] && !ROUTINE[w.session].rest){
-        const def=ROUTINE[w.session];
+      if(w && w.session && !(ROUTINE[w.session]||{}).rest){
+        const cur=isCurrentProgram(w), def=cur?ROUTINE[w.session]:null;
         const parts=[];
-        (def.exercises||[]).forEach(ex=>{ const l=(w.lifts||{})[ex.id]; if(l&&l.weight) parts.push(`${ex.name.split(' (')[0]} ${fmt(l.weight)}×${l.reps||'?'}`); });
+        liftIds(w,def).forEach(id=>{ const l=(w.lifts||{})[id]; if(l&&l.weight) parts.push(`${(EX_NAMES[id]||id).split(' (')[0]} ${fmt(l.weight)}×${l.reps||'?'}`); });
         (w.extra||[]).forEach(ex=>{ if(ex.weight) parts.push(`${ex.name} ${fmt(ex.weight)}×${ex.reps||'?'}`); });
-        if(parts.length) workRow=`<div class="hist-row" style="flex-direction:column;gap:4px"><span>Workout</span><span class="hist-lifts"><span class="sess">${def.tag||def.name}</span> — ${parts.map(escHtml).join(' · ')}</span></div>`;
+        if(parts.length) workRow=`<div class="hist-row" style="flex-direction:column;gap:4px"><span>Workout</span><span class="hist-lifts"><span class="sess">${def?(def.tag||def.name):'Earlier program'}</span> — ${parts.map(escHtml).join(' · ')}</span></div>`;
       }
 
       const nutRow= tc>0?`<div class="hist-row"><span>Nutrition</span><strong>
@@ -2195,7 +2203,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     if(!keys.length){ document.getElementById('exportTa').value='No data logged yet.'; return; }
     const lines=[
       'HDH FITNESS LOG — LAST 14 DAYS','══════════════════════════','',
-      'Below is my logged body data, workouts (Heavy Duty Hybrid V9d), and daily nutrition.',
+      `Below is my logged body data, workouts (${PROGRAM_NAME}), and daily nutrition.`,
       'Please review trends, flag anything concerning, and suggest adjustments to training or nutrition.','',
     ];
     const P=currentPhase();
@@ -2218,14 +2226,14 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
       if(bp.length) lines.push('  Body: '+bp.join(' | '));
 
       const w=d.workout;
-      if(w && w.session && ROUTINE[w.session]){
-        const def=ROUTINE[w.session];
-        if(def.rest){ lines.push(`  Workout: Rest (${def.name})`); }
+      if(w && w.session){
+        const cur=isCurrentProgram(w), def=cur?ROUTINE[w.session]:null;
+        if(def&&def.rest){ lines.push(`  Workout: Rest (${def.name})`); }
         else{
           const parts=[];
-          (def.exercises||[]).forEach(ex=>{ const l=(w.lifts||{})[ex.id]; if(l&&l.weight) parts.push(`${ex.name}: ${fmt(l.weight)}lb × ${l.reps||'?'}`); });
+          liftIds(w,def).forEach(id=>{ const l=(w.lifts||{})[id]; if(l&&l.weight) parts.push(`${EX_NAMES[id]||id}: ${fmt(l.weight)}lb × ${l.reps||'?'}`); });
           (w.extra||[]).forEach(ex=>{ if(ex.weight) parts.push(`${ex.name}: ${fmt(ex.weight)}lb × ${ex.reps||'?'}`); });
-          lines.push(`  Workout — ${def.name}:`);
+          lines.push(`  Workout — ${def?def.name:'earlier program'}:`);
           if(parts.length) parts.forEach(p=>lines.push(`    • ${p}`)); else lines.push('    (no lifts logged)');
         }
       }
