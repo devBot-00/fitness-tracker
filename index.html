@@ -387,6 +387,9 @@
     .bfp-stat span { display: block; font-size: 10px; color: var(--muted); font-weight: 600; }
     .bfp-stat strong { font-size: 14px; color: var(--text); }
     .bfp-stat em { font-style: normal; font-size: 10px; color: var(--muted); }
+    .bfp-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 10px; color: var(--muted); font-weight: 600; }
+    .bfp-legend span { display: flex; align-items: center; gap: 5px; }
+    .bfp-legend i { width: 14px; display: inline-block; }
     .bfp-tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 7px; font-size: 11px; color: var(--text); white-space: nowrap; transform: translate(-50%, -100%); display: none; z-index: 2; }
 
     .mini-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: 0; text-transform: none; }
@@ -1663,7 +1666,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
   // The band is the 95% confidence interval of the trend line itself (not of a
   // single day's reading), so it widens the further out you project.
   const BFP_KEY='bfProj';
-  function bfpCfg(){ try{ return Object.assign({ fit:28, ahead:56, goal:'' }, JSON.parse(lsGet(BFP_KEY)||'{}')); }catch(e){ return { fit:28, ahead:56, goal:'' }; } }
+  function bfpCfg(){ try{ return Object.assign({ fit:28, ahead:56, goal:'', plan:null }, JSON.parse(lsGet(BFP_KEY)||'{}')); }catch(e){ return { fit:28, ahead:56, goal:'', plan:null }; } }
   function bfpSave(c){ lsSet(BFP_KEY, JSON.stringify(c)); }
   let BFP=null; // last-rendered geometry, for the hover layer
 
@@ -1679,6 +1682,15 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     return { a, b, mx, sxx, se, n, t, at:x=>a+b*x, band:x=>t*se*Math.sqrt(1/n+(x-mx)**2/sxx) };
   }
 
+  // Plan line: BF% you'd be at if weight moved at the plan's rate from its start, with ~80% of a
+  // cut's loss coming from fat (~50% of a bulk's gain). Anchored to a start date so you can see
+  // whether the trend is keeping up.
+  function bfPlanModel(PL, today){
+    const ax=dayDiff(today,PL.start), lbDay=PL.rate/100*PL.w/7, fat0=PL.w*PL.bf/100, ff=PL.rate<0?0.8:0.5;
+    return { ax, rate:PL.rate, start:PL.start, at:x=>{ const dW=lbDay*(x-ax); return (fat0+ff*dW)/(PL.w+dW)*100; } };
+  }
+  function planRateNow(){ const cur=currentPhase(); return cur ? cur.rate : mtCfg().rate; }
+
   function bfProjectionCard(data, allKeys){
     const c=bfpCfg(), today=todayKey();
     const all=[]; allKeys.forEach(k=>{ const v=data[k].body&&+data[k].body.bf; if(v>0) all.push({key:k, value:v}); });
@@ -1686,7 +1698,11 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     const toggle=(name,cur,opts)=>`<div class="metric-toggle" data-bfp="${name}">${opts.map(([v,l])=>`<button data-v="${v}" class="${+cur===v?'active':''}">${l}</button>`).join('')}</div>`;
     const ctrls=`<div class="bfp-ctrls"><span class="bfp-grp">Fit last ${toggle('fit',c.fit,[[28,'4 wk'],[56,'8 wk'],[0,'All']])}</span>
       <span class="bfp-grp">Project ${toggle('ahead',c.ahead,[[28,'4 wk'],[56,'8 wk'],[84,'12 wk']])}</span>
-      <label>Goal <input class="bfp-goal" id="bfpGoal" type="number" inputmode="decimal" step="0.5" placeholder="—" value="${escHtml(c.goal)}"> %</label></div>`;
+      <label>Goal <input class="bfp-goal" id="bfpGoal" type="number" inputmode="decimal" step="0.5" placeholder="—" value="${escHtml(c.goal)}"> %</label>
+      ${c.plan
+        ? `<span class="bfp-grp">Plan ${c.plan.rate>0?'+':''}${c.plan.rate}%/wk from ${shortDate(c.plan.start)}${c.plan.rate!==planRateNow()?` <span style="color:var(--yellow)">(phase is now ${planRateNow()}%)</span>`:''}
+           <span class="metric-toggle"><button data-plan="start">Restart</button><button data-plan="clear" aria-label="Remove plan line">×</button></span></span>`
+        : `<span class="metric-toggle"><button data-plan="start">+ Plan line at ${planRateNow()}%/wk</button></span>`}</div>`;
     const card=inner=>`<div class="chart-card" style="position:relative"><div class="chart-name" style="margin-bottom:2px">Body Fat — Trend &amp; Projection</div>${inner}</div>`;
     const lastKey=all.length?all[all.length-1].key:today;
     const startKey= c.fit ? addDaysKey(lastKey, -(c.fit-1)) : (all[0]||{}).key;
@@ -1699,7 +1715,10 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     const endX=ahead, x0=dayDiff(today,hist[0].key);
     const nowV=F.at(0), endV=F.at(endX), endB=F.band(endX), wk=F.b*7;
     // Y range covers readings, the projected band and the goal (if set)
+    const plan=c.plan ? bfPlanModel(c.plan, today) : null;
+    const px0=plan ? Math.max(x0, plan.ax) : 0;
     const ys=hist.map(p=>p.value).concat([endV-endB,endV+endB,F.at(x0)]); if(goal>0) ys.push(goal);
+    if(plan && px0<endX) ys.push(plan.at(px0), plan.at(endX));
     let mn=Math.min(...ys), mx=Math.max(...ys); const padY=(mx-mn)*0.08||0.5; mn-=padY; mx+=padY;
     const W=340,H=190,pL=30,pR=10,pT=12,pB=22;
     const X=x=>pL+(x-x0)/(endX-x0)*(W-pL-pR), Y=v=>pT+(1-(v-mn)/(mx-mn))*(H-pT-pB);
@@ -1721,6 +1740,12 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     const endDot=`<circle cx="${X(endX).toFixed(1)}" cy="${Y(endV).toFixed(1)}" r="4" fill="var(--red)" stroke="var(--surface)" stroke-width="2"/>`+
       `<text x="${(X(endX)-6).toFixed(1)}" y="${(Y(endV)+(F.b<0?-9:15)).toFixed(1)}" fill="var(--text)" font-size="10" font-weight="700" text-anchor="end">${round(endV,1)}%</text>`;
 
+    let planSvg='';
+    if(plan && px0<endX){
+      let d='M '+P(px0,plan.at(px0)); for(let i=1;i<=N;i++){ const x=px0+i/N*(endX-px0); d+=' L '+P(x,plan.at(x)); }
+      planSvg=`<path d="${d}" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round"/>`+
+        (plan.ax>=x0?`<circle cx="${X(plan.ax).toFixed(1)}" cy="${Y(plan.at(plan.ax)).toFixed(1)}" r="3" fill="var(--blue)" stroke="var(--surface)" stroke-width="1.5"/>`:'');
+    }
     // goal line + ETA
     let goalSvg='', eta=null;
     if(goal>0){
@@ -1730,21 +1755,30 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     }
     const xa=`<text x="${pL}" y="${H-6}" fill="var(--muted)" font-size="9">${hist[0].key.slice(5)}</text><text x="${W-pR}" y="${H-6}" fill="var(--muted)" font-size="9" text-anchor="end">${addDaysKey(today,endX).slice(5)}</text>`;
     const svg=`<svg class="bfp-svg" id="bfpSvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Body fat trend: ${round(nowV,1)}% now, ${wk<0?'losing':'gaining'} ${round(Math.abs(wk),2)}% per week, projected ${round(endV,1)}% in ${ahead/7} weeks" xmlns="http://www.w3.org/2000/svg">
-      ${grid}${proj}${fitLine}${dots}${avg}${goalSvg}${todayLine}${endDot}${xa}
+      ${grid}${proj}${planSvg}${fitLine}${dots}${avg}${goalSvg}${todayLine}${endDot}${xa}
       <line id="bfpCross" y1="${pT}" y2="${H-pB}" stroke="var(--text)" stroke-opacity="0.35" stroke-width="1" visibility="hidden"/>
       <circle id="bfpHover" r="4" fill="var(--red)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>
-      <rect x="${pL}" y="${pT}" width="${W-pL-pR}" height="${H-pT-pB}" fill="transparent"/></svg><div class="bfp-tip" id="bfpTip"></div>`;
-    BFP={ W, X, Y, x0, endX, F, hist, today };
+      <rect x="${pL}" y="${pT}" width="${W-pL-pR}" height="${H-pT-pB}" fill="transparent"/></svg><div class="bfp-tip" id="bfpTip"></div>
+      <div class="bfp-legend"><span><i style="border-top:2px solid var(--red)"></i>Trend</span><span><i style="border-top:2px dashed var(--red)"></i>If it continues</span>${plan?'<span><i style="border-top:2px solid var(--blue)"></i>Plan</span>':''}${goal>0?'<span><i style="border-top:2px dotted var(--accent)"></i>Goal</span>':''}</div>`;
+    BFP={ W, X, Y, x0, endX, F, hist, today, plan, nowV };
 
     const rateCls = Math.abs(wk)<0.02 ? 'flat' : (wk<0 ? 'up' : 'down');
     const etaTxt = !(goal>0) ? `<em>set a goal</em>` : eta<0 ? `<em>not on this trend</em>` : eta>365 ? `<em>over a year out</em>` :
       `${new Date(keyToDate(addDaysKey(today,eta))).toLocaleDateString(undefined,{month:'short',day:'numeric'})}<em> · ${round(eta/7,1)} wk</em>`;
+    let planEta=null;
+    if(plan && goal>0){ for(let x=Math.max(0,plan.ax); x<=365; x++){ if((plan.at(x)-goal)*Math.sign(plan.at(plan.ax)-goal)<=0){ planEta=x; break; } } }
+    const planEtaTxt = planEta!=null ? `<em><br>plan: ${shortDate(addDaysKey(today,planEta))}</em>` : '';
+    let vsPlan='';
+    if(plan && plan.ax<=0){
+      const diff=nowV-plan.at(0), lean=plan.rate<0 ? -diff : diff, tol=0.15;
+      vsPlan=`<div class="bfp-stat"><span>vs plan</span><strong style="color:${Math.abs(diff)<tol?'var(--text)':(lean>0?'var(--accent)':'var(--red)')}">${Math.abs(diff)<tol?'On plan':(diff>0?'+':'')+round(diff,1)+'%'}</strong><em> ${Math.abs(diff)<tol?'':(lean>0?'ahead':'behind')}</em></div>`;
+    }
     const head=`<div class="chart-head"><span class="chart-cur">${round(nowV,1)}<span class="u"> % · trend today</span></span><span class="chart-delta ${rateCls}">${wk>0?'+':''}${round(wk,2)} %/wk</span></div>`;
     const stats=`<div class="bfp-stats">
       <div class="bfp-stat"><span>In ${ahead/7} weeks</span><strong>${round(endV,1)}%</strong><em> ± ${round(endB,1)}</em></div>
-      <div class="bfp-stat"><span>${goal>0?'Reach '+goal+'%':'Goal ETA'}</span><strong>${etaTxt}</strong></div>
-      <div class="bfp-stat"><span>Fit</span><strong>${F.n}</strong><em> readings</em></div></div>`;
-    return card(head+ctrls+svg+stats+`<div class="chart-sub" style="margin-top:6px">Straight-line fit, red dots are daily readings, grey is the 7-day average. Shaded band is 95% confidence in the trend line. Fat loss usually slows as you get leaner, so far-out projections run optimistic.</div>`);
+      <div class="bfp-stat"><span>${goal>0?'Reach '+goal+'%':'Goal ETA'}</span><strong>${etaTxt}</strong>${planEtaTxt}</div>
+      ${vsPlan||`<div class="bfp-stat"><span>Fit</span><strong>${F.n}</strong><em> readings</em></div>`}</div>`;
+    return card(head+ctrls+svg+stats+`<div class="chart-sub" style="margin-top:6px">Straight-line fit, red dots are daily readings, grey is the 7-day average. Shaded band is 95% confidence in the trend line.${plan?' Plan assumes ~80% of weight lost is fat; restart it when you change your rate.':''} Fat loss usually slows as you get leaner, so far-out projections run optimistic.</div>`);
   }
 
   function wireBfProjection(){
@@ -1753,6 +1787,14 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     }));
     const g=document.getElementById('bfpGoal');
     if(g) g.addEventListener('change',()=>{ const c=bfpCfg(); c.goal=g.value; bfpSave(c); renderProgress(); });
+    document.querySelectorAll('[data-plan]').forEach(b=>b.addEventListener('click',()=>{
+      const c=bfpCfg();
+      if(b.dataset.plan==='clear') c.plan=null;
+      else if(BFP){ let w=null; try{ const M=primaryMaint(); if(M.status==='ok') w=M.trendW; }catch(e){}
+        if(!w){ const d=allData(); const k=Object.keys(d).filter(k=>d[k].body&&d[k].body.weight>0).sort().pop(); w=k?+d[k].body.weight:null; }
+        if(w) c.plan={ start:BFP.today, bf:+BFP.nowV.toFixed(2), w:+w.toFixed(1), rate:planRateNow() }; }
+      bfpSave(c); renderProgress();
+    }));
     const svg=document.getElementById('bfpSvg'); if(!svg||!BFP) return;
     const tip=document.getElementById('bfpTip'), cross=document.getElementById('bfpCross'), dot=document.getElementById('bfpHover');
     const hide=()=>{ tip.style.display='none'; cross.setAttribute('visibility','hidden'); dot.setAttribute('visibility','hidden'); };
@@ -1766,6 +1808,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
         x=dayDiff(today,p.key); v=p.value;
         txt=`<b>${keyToDate(p.key).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</b> · ${round(p.value,1)}% <span style="color:var(--muted)">(7d ${round(p.avg,1)}%)</span>`;
       } else { v=F.at(x); txt=`<b>${lbl}</b> · projected ${round(v,1)}% <span style="color:var(--muted)">± ${round(F.band(x),1)}</span>`; }
+      if(BFP.plan && x>=BFP.plan.ax) txt+=` · <span style="color:var(--blue)">plan ${round(BFP.plan.at(x),1)}%</span>`;
       const cx=X(x); cross.setAttribute('x1',cx); cross.setAttribute('x2',cx); cross.setAttribute('visibility','visible');
       dot.setAttribute('cx',cx); dot.setAttribute('cy',Y(v)); dot.setAttribute('visibility','visible');
       const pr=svg.parentElement.getBoundingClientRect();
