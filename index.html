@@ -557,7 +557,7 @@
     <div id="mtKF"></div>
 
     <div class="card">
-      <div class="card-title">Data window <span class="sub" id="mtWinSub"></span></div>
+      <div class="card-title">Regression data window <span class="sub" id="mtWinSub"></span></div>
       <div class="mt-chips" id="mtWinChips">
         <button data-w="21">21D</button>
         <button data-w="28">28D</button>
@@ -577,6 +577,7 @@
     <div class="card">
       <details class="mt-how">
         <summary>How this works ▾</summary>
+        <p><b>Which estimate drives your targets:</b> the Kalman filter. It runs one step per day over your whole log, uses ~3,200 kcal/lb during a cut (a high-protein cut loses some lean tissue too), subtracts carb-driven water swings, downweights odd weigh-ins and gives a usable number from the first days of a phase. In simulated cuts its error was ~30–45% lower than the regression's at every point. The regression below is kept as a second opinion: if the two disagree beyond their bands for weeks, suspect under-logging or the scale.</p>
         <p><b>Energy balance:</b> maintenance = average intake − (weight trend × 3,500 kcal/lb). If you ate 1,750/day and lost 1.6 lb/week, you were 800 kcal/day under maintenance, so maintenance ≈ 2,550.</p>
         <p><b>Why a regression:</b> daily weight swings 1–3 lb on water, sodium, glycogen and gut contents, while real tissue change is ~0.1–0.2 lb/day. Fitting a line through every weigh-in uses all the data, so the slope firms up much faster than comparing two weekly averages.</p>
         <p><b>The ± range</b> is a 95% interval from the scatter of your weigh-ins around the line, widened for day-to-day water carryover (a salty meal or a hard leg day moves weight for 2–3 days, so neighbouring weigh-ins aren't independent). It shrinks roughly with days<sup>1.5</sup>. With typical carryover that's about ±250 at 4 steady weeks and ±150 at 6; consistent food, sodium and weigh-in timing tighten it. The band was calibrated by simulation to contain the true value ~95% of the time.</p>
@@ -1226,14 +1227,12 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     if(lbl==='Today'||lbl==='Yesterday') return full;
     return `${ago} days ago`;
   }
-  // Same formula as the Maintenance tab's "Eat" / protein rows (carried estimate if the new phase is still building).
+  // Same formula as the Maintenance tab's "Eat" / protein rows, from the primary (Kalman) estimate.
   function dailyTargets(){
     try{
-      let R=estimateMaint(); const cur=currentPhase();
-      if(R.status!=='ok' && cur){ const C=estimateMaint({ end:addDaysKey(cur.start,-1), carried:true }); if(C.status==='ok') R=C; }
-      if(R.status!=='ok') return null;
-      const rate=cur?cur.rate:R.cfg.rate, lbWk=rate/100*R.trendW;
-      return { kcal:Math.round((R.tdee+lbWk*KCAL_PER_LB/7)/10)*10, pro:Math.round(R.trendW*(rate<0?1.0:0.8)/5)*5, ci:R.ci };
+      const R=primaryMaint(); if(R.status!=='ok') return null;
+      const cur=currentPhase(), rate=cur?cur.rate:mtCfg().rate, lbWk=rate/100*R.trendW;
+      return { kcal:Math.round((R.tdee+lbWk*(R.rho||KCAL_PER_LB)/7)/10)*10, pro:Math.round(R.trendW*(rate<0?1.0:0.8)/5)*5, ci:R.ci };
     }catch(e){ return null; }
   }
   function renderLogExtras(){ renderSummary(); renderWeighCtx(); renderFoodBars(); }
@@ -1976,6 +1975,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
   function kfPhaseName(t){ return t==='maint' ? 'maintain' : t; }
   function kfDayKey(d){ const dt=new Date(d*86400000); return [dt.getUTCFullYear(),pad(dt.getUTCMonth()+1),pad(dt.getUTCDate())].join('-'); }
   function setKfAct(a){ const c=mtCfg(); c.kfAct=a; saveMtCfg(c); renderMaint(); }
+  function setKfBump(b){ const c=mtCfg(); c.kfBump=b; saveMtCfg(c); renderMaint(); renderLogExtras(); }
 
   function estimateMaintKF(){
     if(typeof MaintKF==='undefined') return null;
@@ -1995,6 +1995,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
       prior: MaintKF.katchPrior(first.weight, bf0, act),
       phaseStarts: phaseList().map(p=>({ k:p.start, phase:kfPhaseName(p.type) })),
       phase: pre,
+      unloggedBump: cfg.kfBump||0,
     });
     R.bf0=bf0; R.act=act; R.firstKey=first.k;
     return R;
@@ -2028,63 +2029,135 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="overflow:hidden">${area}${line}${gated}${last}${lbl}</svg>`;
   }
 
-  // `ols` is the live regression result, for the agreement line.
-  function renderMaintKF(ols){
-    const el=document.getElementById('mtKF'); if(!el) return;
-    const K=estimateMaintKF();
-    if(!K){ el.innerHTML=''; return; }
-    const act=mtCfg().kfAct||1.55;
-    const actChips=[[1.4,'Light'],[1.55,'Moderate'],[1.7,'Active']].map(([a,l])=>`<button class="${a===act?'active':''}" onclick="setKfAct(${a})">${l} ${a}</button>`).join('');
-    const priorTxt = K.prior ? `Prior: Katch–McArdle ${kc(K.prior.tdee)} ± ${kc(K.prior.sd)} (${round(K.bf0,1)}% BF × ${act})` : '';
-    if(K.status!=='ok'){
-      const minI=K.params?K.params.minIntake:5, need=Math.max(0,minI-(K.nI||0));
-      el.innerHTML=`<div class="card">
-        <div class="card-title">Kalman estimate <span class="conf-pill lo">Building</span></div>
-        <div style="font-size:14px;line-height:1.55;margin-bottom:6px">${(K.nW||0)<4?'Needs 4+ weigh-ins.':`Needs ${need} more logged intake day${need===1?'':'s'} to separate maintenance from intake.`}</div>
-        <div class="mt-src">${K.nW||0} weigh-ins · ${K.nI||0} intake days.${priorTxt?' '+priorTxt:''}</div>
-      </div>`;
-      return;
-    }
+  // ═══════════════ Primary estimate ═══════════════
+  // The Kalman filter drives every target, warning and export line. The regression is kept as a
+  // second opinion, and is the fallback when the filter is unavailable or still building.
+  function recentBF(trendW){
+    const data=allData();
+    const bfs=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&data[k].body&&data[k].body.bf>0).sort().slice(-7).map(k=>+data[k].body.bf);
+    if(!bfs.length) return {};
+    const bf=bfs.reduce((x,y)=>x+y,0)/bfs.length, fatLb=trendW*bf/100;
+    return { bf, fatLb, ceiling:fatLb*FAT_KCAL_PER_LB_DAY };
+  }
+  function recentProtein(){
+    const data=allData();
+    const p=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().map(k=>dayTotals(data[k]).pro).filter(v=>v>0).slice(-14);
+    return p.length ? p.reduce((x,y)=>x+y,0)/p.length : null;
+  }
+  // Kalman result → the same shape the intake card and targets read from a regression result.
+  function kfPrimary(K){
     const g = K.ci<=150 ? 2 : (K.ci<=300 ? 1 : 0);
-    const grade=['lo','mid','hi'][g], gradeTxt=['Low','Moderate','High'][g]+' confidence';
-    let cmp='';
-    if(ols && ols.status==='ok'){
-      const diff=K.tdee-ols.tdee, tol=Math.sqrt(K.ci*K.ci+ols.ci*ols.ci);
-      cmp = Math.abs(diff)<=tol
-        ? `<div class="mt-alert info">Agrees with the regression estimate above (${kc(ols.tdee)} ± ${kc(ols.ci)}) within the bands.</div>`
-        : `<div class="mt-alert warn2">Differs from the regression estimate above (${kc(ols.tdee)} ± ${kc(ols.ci)}) by ${sgn(diff,0)} kcal. Early in a phase this is expected: the filter leans on its prior until ~4 weeks of steady data. Persistent disagreement usually means under-logging.</div>`;
-    }
-    const warn=K.warnings.map(w=>`<div class="mt-alert ${/intake/i.test(w)?'warn2':'info'}">${w}</div>`).join('');
-    const balTxt = K.balance==null ? '' : (K.balance<0 ? `${kc(-K.balance)} deficit` : `${kc(K.balance)} surplus`);
-    const d100 = K.daysTo100==null ? 'more than 6 months away' : (K.daysTo100===0 ? 'reached' : `~${K.daysTo100} more daily weigh-ins`);
-    el.innerHTML=`
+    const P=Object.assign({}, K, recentBF(K.trendW), { src:'kf', avgPro:recentProtein(),
+      grade:['lo','mid','hi'][g], gradeTxt:['Low','Moderate','High'][g]+' confidence' });
+    P.warnings=K.warnings.map(w=>({ cls:/intake/i.test(w)?'warn2':'info', html:w }));
+    if(P.ceiling && P.balance!=null && -P.balance>P.ceiling)
+      P.warnings.unshift({ cls:'bad', html:`Current deficit (~${kc(-P.balance)} kcal/day) is above the ~${kc(P.ceiling)} kcal/day your fat stores can release (≈${FAT_KCAL_PER_LB_DAY} kcal per lb of fat per day, at ${round(P.bf,1)}% BF). The gap is likely being covered by lean tissue.` });
+    return P;
+  }
+  // Best available estimate: Kalman when ready, otherwise the regression (carried forward across a new phase).
+  function primaryMaint(){
+    try{ const K=estimateMaintKF(); if(K && K.status==='ok') return kfPrimary(K); }catch(e){}
+    let R=estimateMaint(); const cur=currentPhase();
+    if(R.status!=='ok' && cur){ const C=estimateMaint({ end:addDaysKey(cur.start,-1), carried:true }); if(C.status==='ok') R=C; }
+    if(R.status==='ok'){ R.src='ols'; R.rho=KCAL_PER_LB; }
+    return R;
+  }
+
+  // "Set your intake" card. Uses the estimate's own kcal-per-lb so maintenance and targets agree.
+  function intakeCard(R, carried){
+    const cur=currentPhase(), cfg=mtCfg();
+    const rho=R.rho||KCAL_PER_LB;
+    const rate = cur ? cur.rate : cfg.rate, targetLbWk=rate/100*R.trendW;
+    const recIn=R.tdee + targetLbWk*rho/7;
+    const cut=rate<0;
+    const proPerLb=cut?1.0:0.8;
+    const proTarget=Math.round(R.trendW*proPerLb/5)*5;
+    const recDeficit=-targetLbWk*rho/7;
+    const overCeil = cut && R.ceiling && recDeficit>R.ceiling;
+    const rateChips=MT_RATES.map(r=>`<button class="${r===rate?'active':''}" onclick="setMtRate(${r})">${r===0?'Maint':(r>0?'+':'−')+Math.abs(r)+'%'}</button>`).join('');
+    return `<div class="card">
+        <div class="card-title">Set your intake <span class="sub">${cur?`${PHASE_TYPES[cur.type].label} target`:'target rate'}, % BW / week</span></div>
+        <div class="mt-chips">${rateChips}</div>
+        <div class="mt-rec">
+          <div class="mt-rec-row"><span>Eat</span><strong class="y">${kc(Math.round(recIn/10)*10)} kcal</strong></div>
+          <div class="mt-rec-row"><span>Target rate</span><strong>${sgn(targetLbWk,2)} lb/wk</strong></div>
+          ${R.avgIn!=null?`<div class="mt-rec-row"><span>Change vs ${carried?'last phase':'current'} avg</span><strong>${sgn(recIn-R.avgIn,0)} kcal</strong></div>`:''}
+          <div class="mt-rec-row"><span>Protein (${proPerLb.toFixed(1)} g/lb trend wt)</span><strong>${proTarget} g</strong></div>
+          ${R.avgPro!=null&&!carried?`<div class="mt-rec-row"><span>Protein logged (avg)</span><strong>${Math.round(R.avgPro)} g</strong></div>`:''}
+          ${R.ceiling&&cut?`<div class="mt-rec-row"><span>Fat-release ceiling (${round(R.bf,1)}% BF)</span><strong style="color:${overCeil?'var(--red)':'var(--text)'}">${kc(R.ceiling)} kcal/day</strong></div>`:''}
+        </div>
+        <div class="mt-note">${cut
+          ? `Cut guide: ~0.7%/wk above 14% BF, ~0.5%/wk below it. ${overCeil?'<b style="color:var(--red)">This target asks for more deficit than your fat stores can supply: pick a slower rate.</b> ':''}The recommendation carries the same ± ${kc(R.ci)} as the estimate and assumes ${kc(rho)} kcal per lb. Re-check in 2 weeks and adjust by 100–150 kcal if the trend misses.`
+          : rate===0 ? `Maintenance intake. Right after a cut, expect a 3–5 lb glycogen/water jump in week one: that's not fat. Re-estimate after 2 steady weeks.`
+          : `Lean-bulk guide: ~0.25–0.4%/wk. Faster mostly adds fat at your training age. Ignore the first week's glycogen jump when judging the rate.`}
+          ${cur?` Rate changes are saved to your ${PHASE_TYPES[cur.type].label.toLowerCase()} phase and sync across devices.`:''}</div>
+      </div>`;
+  }
+
+  function kfMainHtml(P){
+    const act=mtCfg().kfAct||1.55, bump=mtCfg().kfBump||0;
+    const actChips=[[1.4,'Light'],[1.55,'Moderate'],[1.7,'Active']].map(([a,l])=>`<button class="${a===act?'active':''}" onclick="setKfAct(${a})">${l} ${a}</button>`).join('');
+    const bumpChips=[[0,'Same as logged'],[150,'+150'],[250,'+250']].map(([b,l])=>`<button class="${b===bump?'active':''}" onclick="setKfBump(${b})">${l}</button>`).join('');
+    const priorTxt = P.prior ? `Prior: Katch–McArdle ${kc(P.prior.tdee)} ± ${kc(P.prior.sd)} (${round(P.bf0,1)}% BF × ${act})` : '';
+    const balTxt = P.balance==null ? '' : (P.balance<0 ? `${kc(-P.balance)} deficit` : `${kc(P.balance)} surplus`);
+    const d100 = P.daysTo100==null ? 'more than 6 months away' : (P.daysTo100===0 ? 'reached' : `~${P.daysTo100} more daily weigh-ins`);
+    return `
       <div class="card">
-        <div class="card-title">Kalman estimate <span class="conf-pill ${grade}">${gradeTxt}</span></div>
+        <div class="card-title">Maintenance estimate <span class="conf-pill ${P.grade}">${P.gradeTxt}</span></div>
         <div class="mt-hero">
-          <div class="mt-big">${kc(K.tdee)}<span class="u"> kcal/day</span></div>
-          <div class="mt-pm">± ${kc(K.ci)} kcal</div>
-          <div class="mt-range">95% range ${kc(K.tdee-K.ci)} – ${kc(K.tdee+K.ci)} · ±100 is ${d100}</div>
+          <div class="mt-big">${kc(P.tdee)}<span class="u"> kcal/day</span></div>
+          <div class="mt-pm">± ${kc(P.ci)} kcal</div>
+          <div class="mt-range">95% range ${kc(P.tdee-P.ci)} – ${kc(P.tdee+P.ci)} · ±100 is ${d100}</div>
         </div>
-        <div class="mt-src">${K.nW} weigh-ins and ${K.nI} logged intake days since ${shortDate(K.firstKey)} (${Math.round(K.coverage*100)}% of days)${K.gated?` · ${K.gated} downweighted`:''}.<br>${priorTxt} · ${kc(K.rho)} kcal per lb of tissue</div>
+        <div class="mt-src">Kalman filter · ${P.nW} weigh-ins and ${P.nI} logged intake days since ${shortDate(P.firstKey)} (${Math.round(P.coverage*100)}% of days)${P.gated?` · ${P.gated} downweighted`:''}.<br>${priorTxt} · ${kc(P.rho)} kcal per lb of tissue</div>
       </div>
-      ${cmp}${warn}
+      ${P.warnings.map(w=>`<div class="mt-alert ${w.cls}">${w.html}</div>`).join('')}
       <div class="card">
-        <div class="card-title">Filter state</div>
+        <div class="card-title">Where you are</div>
         <div class="mt-stats">
-          <div class="mt-stat"><span class="lbl">Avg intake (14d)</span><span class="val" style="color:var(--yellow)">${K.avgIn!=null?kc(K.avgIn):'—'}</span><span class="sub2">kcal/day logged</span></div>
-          <div class="mt-stat"><span class="lbl">Energy balance</span><span class="val">${K.balance!=null?sgn(K.balance,0):'—'}</span><span class="sub2">kcal/day${balTxt?' · '+balTxt:''}</span></div>
-          <div class="mt-stat"><span class="lbl">Weight trend</span><span class="val" style="color:${K.lbWk<0?'var(--accent)':'var(--blue)'}">${K.lbWk!=null?sgn(K.lbWk,2):'—'}</span><span class="sub2">lb/wk${K.pctWk!=null?` · ${sgn(K.pctWk,2)}% BW`:''}</span></div>
-          <div class="mt-stat"><span class="lbl">Tissue weight</span><span class="val">${round(K.tissueW,1)}</span><span class="sub2">lb, water and glycogen removed</span></div>
+          <div class="mt-stat"><span class="lbl">Avg intake (14d)</span><span class="val" style="color:var(--yellow)">${P.avgIn!=null?kc(P.avgIn):'—'}</span><span class="sub2">kcal/day logged</span></div>
+          <div class="mt-stat"><span class="lbl">Energy balance</span><span class="val">${P.balance!=null?sgn(P.balance,0):'—'}</span><span class="sub2">kcal/day${balTxt?' · '+balTxt:''}</span></div>
+          <div class="mt-stat"><span class="lbl">Weight trend</span><span class="val" style="color:${P.lbWk<0?'var(--accent)':'var(--blue)'}">${P.lbWk!=null?sgn(P.lbWk,2):'—'}</span><span class="sub2">lb/wk${P.pctWk!=null?` · ${sgn(P.pctWk,2)}% BW`:''}</span></div>
+          <div class="mt-stat"><span class="lbl">Tissue weight</span><span class="val">${round(P.tissueW,1)}</span><span class="sub2">lb, water and glycogen removed</span></div>
         </div>
       </div>
+      ${intakeCard(P,false)}
       <div class="chart-card">
         <div class="chart-head"><span class="chart-name">Maintenance over time</span><span class="chart-delta flat">95% band</span></div>
-        ${kfChart(K)}
+        ${kfChart(P)}
+      </div>
+      <div class="card">
+        <div class="card-title">Unlogged days <span class="sub">${P.nI} of ${Math.round(P.nI/(P.coverage||1))} days logged</span></div>
+        <div class="mt-chips">${bumpChips}</div>
+        <div class="mt-note">The filter fills days with no food logged using your recent average. If those days usually run bigger (weekends, eating out), add a bump so maintenance and your targets don't read low.</div>
       </div>
       <div class="card">
         <div class="card-title">Activity for the prior <span class="sub">matters for the first ~2 weeks only</span></div>
         <div class="mt-chips">${actChips}</div>
         <div class="mt-note">Sets the Katch–McArdle starting guess. Data takes over as it accumulates: a prior 300 kcal off biases day 12 by ~150 and is washed out by week 4–6.</div>
+      </div>`;
+  }
+
+  // Regression as a compact cross-check under the Kalman view.
+  function olsSecondHtml(O, K, carried){
+    if(O.status!=='ok') return `<div class="card"><div class="card-title">Second opinion: regression <span class="conf-pill lo">Building</span></div>
+      <div class="mt-src">${O.nW||0} weigh-ins · ${O.nI||0} intake days in its window. It needs ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days with ${MT_MIN.intake}+ intake days.</div></div>`;
+    const diff=K.tdee-O.tdee, tol=Math.sqrt(K.ci*K.ci+O.ci*O.ci), agree=Math.abs(diff)<=tol;
+    return `<div class="card">
+        <div class="card-title">Second opinion: regression <span class="conf-pill ${O.grade}">${O.gradeTxt}</span></div>
+        <div class="mt-rec">
+          <div class="mt-rec-row"><span>${carried?'Maintenance (last phase)':'Maintenance'}</span><strong>${kc(O.tdee)} ± ${kc(O.ci)} kcal</strong></div>
+          <div class="mt-rec-row"><span>Weight trend</span><strong>${sgn(O.lbWk,2)} lb/wk</strong></div>
+        </div>
+        <div class="mt-alert ${agree?'info':'warn2'}" style="margin:8px 0 0">${agree
+          ? `Agrees with the Kalman estimate within the bands (${sgn(diff,0)} kcal).`
+          : `Differs from the Kalman estimate by ${sgn(diff,0)} kcal, beyond the bands. Early in a phase that's expected; if it persists past ~4 steady weeks, check for under-logged days or an odd scale.`}</div>
+        <div class="mt-src" style="margin-top:6px">Straight line through weigh-ins at ${kc(KCAL_PER_LB)} kcal/lb, ${O.nW} weigh-ins ${shortDate(O.first)} – ${shortDate(O.last)}. The data-window settings below apply to this card only.</div>
+      </div>
+      ${O.warnings.filter(w=>w.cls!=='info').map(w=>`<div class="mt-alert ${w.cls}">${w.html}</div>`).join('')}
+      <div class="chart-card">
+        <div class="chart-head"><span class="chart-name">Weigh-ins vs trend</span><span class="chart-delta ${O.lbWk<0?'up':'flat'}">${sgn(O.lbWk,2)} lb/wk</span></div>
+        ${mtChart(O)}
       </div>`;
   }
 
@@ -2188,28 +2261,37 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
   function renderMaint(){
     renderPhaseCard();
     let R=estimateMaint(); const cfg=R.cfg;
-    // The Kalman card must never take the regression card down with it: isolate any failure.
-    try{ renderMaintKF(R); }
-    catch(e){ const kfEl=document.getElementById('mtKF'); if(kfEl) kfEl.innerHTML=`<div class="mt-alert warn2">Kalman estimate unavailable: ${escHtml(e.message)}</div>`; }
     [...document.querySelectorAll('#mtWinChips button')].forEach(b=>b.classList.toggle('active', parseInt(b.dataset.w)===cfg.win));
     document.getElementById('mtStart').value=cfg.start||'';
     document.getElementById('mtStart').max=todayKey();
-    document.getElementById('mtWinSub').textContent = R.startKey>'0000'
-      ? `from ${shortDate(R.startKey)}${R.floorBy==='phase'?' (phase settle)':(R.floorBy==='manual'?' (your filter)':'')}` : 'all data';
-    const el=document.getElementById('mtMain');
+    document.getElementById('mtWinSub').textContent = (R.startKey>'0000'
+      ? `from ${shortDate(R.startKey)}${R.floorBy==='phase'?' (phase settle)':(R.floorBy==='manual'?' (your filter)':'')}` : 'all data');
+    const el=document.getElementById('mtMain'), second=document.getElementById('mtKF');
     const cur=currentPhase();
     const live=R;
 
-    // New phase without enough data yet → carry forward the estimate from just before it started.
+    // New phase without enough data yet → carry forward the regression from just before it started.
     let carried=null;
     if(R.status==='building' && cur){
       const C=estimateMaint({ end:addDaysKey(cur.start,-1), carried:true });
       if(C.status==='ok'){ carried=C; R=C; }
     }
 
+    // Kalman leads whenever it has an estimate. Isolated so a filter failure can't take the tab down.
+    let K=null, kfErr='';
+    try{ K=estimateMaintKF(); }catch(e){ kfErr=e.message; }
+    if(K && K.status==='ok'){
+      el.innerHTML=transitionAlerts()+kfMainHtml(kfPrimary(K));
+      second.innerHTML=olsSecondHtml(R, K, carried);
+      return;
+    }
+    second.innerHTML='';
+    const kfNote = kfErr ? `<div class="mt-alert warn2">Kalman estimate unavailable (${escHtml(kfErr)}); showing the regression.</div>`
+      : (K ? `<div class="mt-alert info">Kalman estimate still building (${K.nW||0} weigh-ins, ${K.nI||0} intake days); showing the regression until it's ready.</div>` : '');
+
     if(R.status==='building'){
       const pct=Math.min(100, Math.round(100*Math.min(R.nW/14, R.span/14, R.nI/13)));
-      el.innerHTML=transitionAlerts()+`<div class="card">
+      el.innerHTML=transitionAlerts()+kfNote+`<div class="card">
         <div class="card-title">Maintenance estimate <span class="conf-pill lo">Building</span></div>
         <div style="font-size:14px;line-height:1.55;margin-bottom:6px">Not enough steady data in this window yet.</div>
         <div class="mt-progress"><div style="width:${pct}%"></div></div>
@@ -2222,20 +2304,13 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
       return;
     }
 
-    const rate = cur ? cur.rate : cfg.rate, targetLbWk=rate/100*R.trendW;
-    const recIn=R.tdee + targetLbWk*KCAL_PER_LB/7;
-    const cut=rate<0;
-    const proPerLb=cut?1.0:0.8;
-    const proTarget=Math.round(R.trendW*proPerLb/5)*5;
-    const recDeficit=-targetLbWk*KCAL_PER_LB/7;
-    const overCeil = cut && R.ceiling && recDeficit>R.ceiling;
-    const rateChips=MT_RATES.map(r=>`<button class="${r===rate?'active':''}" onclick="setMtRate(${r})">${r===0?'Maint':(r>0?'+':'−')+Math.abs(r)+'%'}</button>`).join('');
     const balTxt = R.balance<0 ? `${kc(-R.balance)} deficit` : `${kc(R.balance)} surplus`;
     const prevLabel = carried && carried.phase ? PHASE_TYPES[carried.phase.type].label.toLowerCase() : 'the period before this phase';
     const rebound = carried && carried.phase && carried.phase.type==='cut' && cur.type!=='cut';
+    R.rho=KCAL_PER_LB;
 
     el.innerHTML=`
-      ${transitionAlerts()}
+      ${transitionAlerts()}${kfNote}
       ${carried?`<div class="mt-alert info"><b>Carried forward</b> from ${prevLabel} (${shortDate(R.first)} – ${shortDate(R.last)}). New-phase data so far: ${live.nW} weigh-ins since ${shortDate(live.startKey)}; the live estimate takes over at ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days.${rebound?' Coming off a cut, true maintenance usually runs ~100–200 kcal above this as daily movement and metabolic rate recover, so this is a conservative starting point.':''}</div>`:''}
       <div class="card">
         <div class="card-title">${carried?'Maintenance (last phase)':'Maintenance estimate'} <span class="conf-pill ${R.grade}">${R.gradeTxt}</span></div>
@@ -2265,23 +2340,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
         ${mtChart(R)}
       </div>
 
-      <div class="card">
-        <div class="card-title">Set your intake <span class="sub">${cur?`${PHASE_TYPES[cur.type].label} target`:'target rate'}, % BW / week</span></div>
-        <div class="mt-chips">${rateChips}</div>
-        <div class="mt-rec">
-          <div class="mt-rec-row"><span>Eat</span><strong class="y">${kc(Math.round(recIn/10)*10)} kcal</strong></div>
-          <div class="mt-rec-row"><span>Target rate</span><strong>${sgn(targetLbWk,2)} lb/wk</strong></div>
-          <div class="mt-rec-row"><span>Change vs ${carried?'last phase':'current'} avg</span><strong>${sgn(recIn-R.avgIn,0)} kcal</strong></div>
-          <div class="mt-rec-row"><span>Protein (${proPerLb.toFixed(1)} g/lb trend wt)</span><strong>${proTarget} g</strong></div>
-          ${R.avgPro!=null&&!carried?`<div class="mt-rec-row"><span>Protein logged (avg)</span><strong>${Math.round(R.avgPro)} g</strong></div>`:''}
-          ${R.ceiling&&cut?`<div class="mt-rec-row"><span>Fat-release ceiling (${round(R.bf,1)}% BF)</span><strong style="color:${overCeil?'var(--red)':'var(--text)'}">${kc(R.ceiling)} kcal/day</strong></div>`:''}
-        </div>
-        <div class="mt-note">${cut
-          ? `Cut guide: ~0.7%/wk above 14% BF, ~0.5%/wk below it. ${overCeil?'<b style="color:var(--red)">This target asks for more deficit than your fat stores can supply: pick a slower rate.</b> ':''}The recommendation carries the same ± ${kc(R.ci)} as the estimate. Re-check in 2 weeks and adjust by 100–150 kcal if the trend misses.`
-          : rate===0 ? `Maintenance intake. Right after a cut, expect a 3–5 lb glycogen/water jump in week one: that's not fat. Re-estimate after 2 steady weeks.`
-          : `Lean-bulk guide: ~0.25–0.4%/wk. Faster mostly adds fat at your training age. Ignore the first week's glycogen jump when judging the rate.`}
-          ${cur?` Rate changes are saved to your ${PHASE_TYPES[cur.type].label.toLowerCase()} phase and sync across devices.`:''}</div>
-      </div>`;
+      ${intakeCard(R,carried)}`;
   }
 
   // ═══════════════ History ═══════════════
@@ -2339,8 +2398,13 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     ];
     const P=currentPhase();
     if(P) lines.push(`CURRENT PHASE: ${PHASE_TYPES[P.type].label} since ${P.start} (target ${P.rate>0?'+':''}${P.rate}% BW/wk)`,'');
-    const M=estimateMaint();
-    if(M.status==='ok'){
+    const M=primaryMaint();
+    if(M.status==='ok' && M.src==='kf'){
+      lines.push(`MAINTENANCE ESTIMATE (Kalman filter): ${kc(M.tdee)} ± ${kc(M.ci)} kcal/day (95%, ${M.gradeTxt.toLowerCase()})`);
+      lines.push(`  From ${M.nW} weigh-ins / ${M.nI} intake days since ${M.firstKey}. Avg intake ${M.avgIn!=null?kc(M.avgIn):'—'} kcal, trend ${M.lbWk!=null?sgn(M.lbWk,2):'—'} lb/wk, balance ${M.balance!=null?sgn(M.balance,0):'—'} kcal/day, trend weight ${round(M.trendW,1)} lb, ${kc(M.rho)} kcal/lb.`);
+      const O=estimateMaint();
+      if(O.status==='ok') lines.push(`  Regression cross-check: ${kc(O.tdee)} ± ${kc(O.ci)} kcal/day.`);
+    } else if(M.status==='ok'){
       lines.push(`MAINTENANCE ESTIMATE: ${kc(M.tdee)} ± ${kc(M.ci)} kcal/day (95%, ${M.gradeTxt.toLowerCase()})`);
       lines.push(`  From ${M.nW} weigh-ins / ${M.nI} intake days, ${M.first} → ${M.last}. Avg intake ${kc(M.avgIn)} kcal, trend ${sgn(M.lbWk,2)} lb/wk (${sgn(M.pctWk,2)}% BW), balance ${sgn(M.balance,0)} kcal/day, trend weight ${round(M.trendW,1)} lb.`);
       lines.push('');
