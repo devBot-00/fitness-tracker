@@ -432,6 +432,17 @@
     .mt-rec-row strong { color: var(--text); font-size: 15px; font-weight: 800; white-space: nowrap; }
     .mt-rec-row strong.y { color: var(--yellow); font-size: 20px; }
     .mt-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 10px; }
+    .st-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+    .st-row:first-of-type { border-top: none; }
+    .st-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .st-val { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .st-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; border: 1px solid; white-space: nowrap; min-width: 64px; text-align: center; }
+    .st-tag.up { color: var(--accent); border-color: var(--accent); }
+    .st-tag.hold { color: var(--text); border-color: var(--border); }
+    .st-tag.stall { color: var(--yellow); border-color: var(--yellow); }
+    .st-tag.down { color: var(--red); border-color: var(--red); }
+    .st-tag.stale { color: var(--muted); border-color: var(--border); }
+    .st-sum { font-size: 12px; line-height: 1.5; margin-top: 8px; color: var(--muted); }
     .mt-alert { border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 8px; border: 1px solid; }
     .mt-alert.warn2 { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.3); color: #fcd34d; }
     .mt-alert.bad   { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.3); color: #fca5a5; }
@@ -536,6 +547,8 @@
       <button data-r="90">90D</button>
       <button data-r="0">All</button>
     </div>
+
+    <div id="strengthCard"></div>
 
     <!-- Exercise progress -->
     <div class="chart-card">
@@ -1531,6 +1544,69 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
   }
   function e1rm(w,r){ if(!w) return null; return Math.round(w*(1+(r||1)/30)); }
 
+  // ═══════════════ Strength trend (muscle proxy) ═══════════════
+  // Main compound lifts over the last 8 weeks, by estimated 1RM. Holding strength in a cut, or
+  // gaining it in a bulk, is a far better muscle signal than the scale's "muscle" reading.
+  const STRENGTH_LIFTS = ['back_squat','deadlift','flat_press','incline_bb','ohp','bb_row','wtd_pullup','pendulum_squat','cs_row','rdl'];
+  const ST_WINDOW = 56, ST_RATE = 28, ST_STALE = 14, ST_STALL = 21;
+  function strengthTrend(){
+    const data=allData(), today=todayKey(), from=addDaysKey(today,-ST_WINDOW);
+    const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+    const out=[];
+    STRENGTH_LIFTS.forEach(id=>{
+      const all=[]; keys.forEach(k=>{ const l=((data[k].workout||{}).lifts||{})[id]; if(l&&l.weight>0) all.push({ k, v:e1rm(l.weight,l.reps) }); });
+      if(!all.length) return;
+      const last=all[all.length-1], since=dayDiff(last.k,today);
+      const pts=all.filter(p=>p.k>=from);
+      const r={ id, name:EX_NAMES[id]||id, last, since, n:pts.length, rate:null, status:'hold' };
+      if(since>ST_STALE){ r.status='stale'; out.push(r); return; }
+      if(pts.length>=2){
+        // Rate from the last 4 weeks only, so early lighter sessions don't mask a recent slide.
+        const rp=pts.filter(p=>p.k>=addDaysKey(today,-ST_RATE));
+        const span=rp.length ? dayDiff(rp[0].k,last.k) : 0, mean=rp.reduce((a,p)=>a+p.v,0)/(rp.length||1);
+        const F = rp.length>=3 ? bfFit(rp.map(p=>({ x:dayDiff(rp[0].k,p.k), y:p.v }))) : null;
+        const slope = F ? F.b : (span>0 ? (last.v-rp[0].v)/span : 0);
+        if(rp.length>=2 && span>=10) r.rate=slope*30/mean*100;
+        // Stalled: best set 3+ weeks ago and at least two sessions since that didn't beat it.
+        let bi=0; pts.forEach((p,i)=>{ if(p.v>pts[bi].v) bi=i; });
+        r.stallDays = (pts.length-1-bi>=2) ? dayDiff(pts[bi].k,today) : 0;
+        if(r.rate!=null && r.rate<-2) r.status='down';
+        else if(r.rate!=null && r.rate>1) r.status='up';
+        else if(r.stallDays>=ST_STALL) r.status='stall';
+      } else r.status='new';
+      out.push(r);
+    });
+    return out;
+  }
+  function strengthCard(){
+    const T=strengthTrend(), el=document.getElementById('strengthCard');
+    if(!T.length){ el.innerHTML=''; return; }
+    const cur=currentPhase(), type=cur?cur.type:null;
+    const tag=r=>({ up:['up','Rising'], hold:['hold','Holding'], stall:['stall',`Stalled ${Math.floor(r.stallDays/7)} wk`],
+      down:['down','Dropping'], stale:['stale',`${r.since} d ago`], new:['hold','Need more'] })[r.status];
+    const rows=T.map(r=>{ const [c,t]=tag(r);
+      return `<div class="st-row" onclick="showLift('${r.id}')"><span class="st-name">${escHtml(r.name)}</span>
+        <span class="st-val">${r.last.v} lb${r.rate!=null&&r.status!=='stale'?` · ${sgn(r.rate,1)}%/mo`:''}</span><span class="st-tag ${c}">${t}</span></div>`; }).join('');
+    const active=T.filter(r=>r.status!=='stale'), down=active.filter(r=>r.status==='down').length,
+      stall=active.filter(r=>r.status==='stall').length, ok=active.length-down-stall;
+    const lastAny=T.reduce((m,r)=>Math.min(m,r.since),Infinity);
+    let sum;
+    if(!active.length) sum=`No main lifts logged in ${lastAny} days. Log your top set each session: it's the best way to tell whether you're keeping or building muscle.`;
+    else {
+      sum=`${ok} of ${active.length} active lifts rising or holding.`;
+      if(type==='cut') sum+= down ? ` Falling strength in a cut usually means the deficit is too steep or sleep/protein are short.` : ` Holding strength while weight drops means you're keeping muscle.`;
+      else if(type==='bulk') sum+= stall ? ` Stalls in a bulk: check sleep and progression before adding calories.` : ` Rising strength with slow weight gain is lean gain.`;
+    }
+    el.innerHTML=`<div class="chart-card"><div class="chart-name" style="margin-bottom:2px">Strength trend</div>
+      <div class="chart-sub" style="margin-bottom:6px">Main lifts · est. 1RM · rate over 4 weeks · tap a lift to chart it</div>
+      ${rows}<div class="st-sum">${sum}</div></div>`;
+  }
+  function showLift(id){
+    const sel=document.getElementById('exSelect'); sel.value=id; exMetric='e1rm';
+    [...document.querySelectorAll('#exMetricToggle button')].forEach(x=>x.classList.toggle('active',x.dataset.m==='e1rm'));
+    renderProgress(); sel.closest('.chart-card').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
   function populateExSelect(){
     const sel=document.getElementById('exSelect');
     if(sel.dataset.built) return;
@@ -1545,6 +1621,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
 
   function renderProgress(){
     populateExSelect();
+    strengthCard();
     const keys=inRangeKeys();
     const data=allData();
 
@@ -2289,6 +2366,42 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     el.innerHTML=html+`</div>`;
   }
 
+  // Is the phase moving too fast? Trailing 3 weeks of weigh-ins (skipping the first 2 weeks of a
+  // phase, which are mostly water), BF% over 4 weeks in a bulk, and strength in the main lifts.
+  function phaseAlerts(){
+    const cur=currentPhase(); if(!cur) return '';
+    const data=allData(), today=todayKey(), out=[];
+    const from=[addDaysKey(today,-21), addDaysKey(cur.start,14)].sort()[1];
+    const series=(start,f)=>Object.keys(data).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)&&x>=start&&x<=today&&data[x].body&&+data[x].body[f]>0).sort()
+      .map(x=>({ x:dayDiff(start,x), y:+data[x].body[f] }));
+    const W=series(from,'weight');
+    if(dayDiff(from,today)>=14 && W.length>=8){
+      const F=bfFit(W), mean=W.reduce((a,p)=>a+p.y,0)/W.length, pct=F.b*7/mean*100, n=dayDiff(from,today);
+      const rho={cut:3200,maint:3500,bulk:3000}[cur.type], fix=Math.round(Math.abs(pct-cur.rate)/100*mean*rho/7/10)*10;
+      if(cur.type==='bulk' && pct>Math.max(0.5,cur.rate+0.25))
+        out.push(`<div class="mt-alert warn2"><b>Gaining too fast:</b> ${sgn(pct,2)}%/wk over the last ${n} days vs your ${sgn(cur.rate,2)}% target. Above ~0.5%/wk most of the extra is fat. Eating ~${kc(fix)} kcal less per day gets you back on target.</div>`);
+      else if(cur.type==='cut' && pct<cur.rate-0.3)
+        out.push(`<div class="mt-alert warn2"><b>Losing faster than planned:</b> ${sgn(pct,2)}%/wk over the last ${n} days vs your ${sgn(cur.rate,2)}% target. A faster cut costs more muscle. About ${kc(fix)} kcal more per day gets you back on target.</div>`);
+    }
+    if(cur.type==='bulk'){
+      const bfFrom=[addDaysKey(today,-28), addDaysKey(cur.start,14)].sort()[1], B=series(bfFrom,'bf');
+      if(dayDiff(bfFrom,today)>=21 && B.length>=10){ const F=bfFit(B), mo=F.b*30;
+        if(mo>0.5) out.push(`<div class="mt-alert warn2"><b>Body fat rising fast:</b> ~${sgn(mo,1)}%/month on the scale trend. A lean bulk should add well under 0.5%/month: trim the surplus by 100–150 kcal.</div>`); }
+    }
+    const T=strengthTrend(), active=T.filter(r=>r.status!=='stale');
+    if(T.length && !active.length){
+      const d=T.reduce((m,r)=>Math.min(m,r.since),Infinity);
+      out.push(`<div class="mt-alert info">No main lifts logged in ${d} days. ${cur.type==='bulk'?'Strength gains are how you tell muscle from fat in a bulk':'Strength is how you tell whether a cut is costing muscle'}: see <b>Progress → Strength trend</b>.</div>`);
+    } else {
+      const down=active.filter(r=>r.status==='down'), stall=active.filter(r=>r.status==='stall');
+      if(cur.type==='cut' && down.length>=2)
+        out.push(`<div class="mt-alert bad"><b>Strength dropping</b> on ${down.map(r=>escHtml(r.name)).join(', ')}. In a cut that usually means the deficit is too steep: move to a slower rate, or check sleep and protein.</div>`);
+      if(cur.type==='bulk' && stall.length>=2)
+        out.push(`<div class="mt-alert warn2"><b>Lifts stalled</b> (${stall.map(r=>escHtml(r.name)).join(', ')}) while in a surplus. More food won't fix it: check sleep, recovery and that you're adding reps or weight each session.</div>`);
+    }
+    return out.join('');
+  }
+
   // Alerts specific to the first two weeks of a new phase.
   function transitionAlerts(){
     const cur=currentPhase(); if(!cur) return '';
@@ -2324,7 +2437,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     let K=null, kfErr='';
     try{ K=estimateMaintKF(); }catch(e){ kfErr=e.message; }
     if(K && K.status==='ok'){
-      el.innerHTML=transitionAlerts()+kfMainHtml(kfPrimary(K));
+      el.innerHTML=transitionAlerts()+phaseAlerts()+kfMainHtml(kfPrimary(K));
       second.innerHTML=olsSecondHtml(R, K, carried);
       return;
     }
@@ -2334,7 +2447,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
 
     if(R.status==='building'){
       const pct=Math.min(100, Math.round(100*Math.min(R.nW/14, R.span/14, R.nI/13)));
-      el.innerHTML=transitionAlerts()+kfNote+`<div class="card">
+      el.innerHTML=transitionAlerts()+phaseAlerts()+kfNote+`<div class="card">
         <div class="card-title">Maintenance estimate <span class="conf-pill lo">Building</span></div>
         <div style="font-size:14px;line-height:1.55;margin-bottom:6px">Not enough steady data in this window yet.</div>
         <div class="mt-progress"><div style="width:${pct}%"></div></div>
@@ -2353,7 +2466,7 @@ return { estimateMaintKF, katchPrior, carriedPrior, adapterFromLog, DEFAULTS, ke
     R.rho=KCAL_PER_LB;
 
     el.innerHTML=`
-      ${transitionAlerts()}${kfNote}
+      ${transitionAlerts()}${phaseAlerts()}${kfNote}
       ${carried?`<div class="mt-alert info"><b>Carried forward</b> from ${prevLabel} (${shortDate(R.first)} – ${shortDate(R.last)}). New-phase data so far: ${live.nW} weigh-ins since ${shortDate(live.startKey)}; the live estimate takes over at ${MT_MIN.weighs} weigh-ins over ${MT_MIN.span}+ days.${rebound?' Coming off a cut, true maintenance usually runs ~100–200 kcal above this as daily movement and metabolic rate recover, so this is a conservative starting point.':''}</div>`:''}
       <div class="card">
         <div class="card-title">${carried?'Maintenance (last phase)':'Maintenance estimate'} <span class="conf-pill ${R.grade}">${R.gradeTxt}</span></div>
